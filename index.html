@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IpsaClicker</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&family=Share+Tech+Mono&family=Kalam:wght@700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg: #050508;
+            --panel: #111116;
+            --primary: #00f7ff;
+            --secondary: #ff00e6;
+            --danger: #ff3333;
+            --success: #33ff33;
+            --daily: #ffd700;
+            --logic: #3b82f6;
+            --prestige: #a600ff;
+            --font-mono: 'Share Tech Mono', monospace;
+            --font-head: 'Orbitron', sans-serif;
+        }
+
+        body {
+            margin: 0; background: var(--bg); color: #eee;
+            font-family: var(--font-mono); height: 100vh; overflow: hidden;
+            display: grid; grid-template-rows: auto 1fr;
+            user-select: none;
+        }
+
+        /* BINARY VIS */
+        #binary-vis {
+            height: 20px; background: #000; border-bottom: 1px solid #333;
+            display: flex; flex-direction: row-reverse; align-items: center; justify-content: center;
+            gap: 2px; padding: 2px 10px; overflow: hidden;
+        }
+        .bit { width: 12px; height: 100%; background: #1a1a1a; transition: background 0.05s; }
+        .bit.on { background: var(--primary); box-shadow: 0 0 5px var(--primary); }
+
+        #main-layout { display: grid; grid-template-columns: 1fr 300px 380px; height: 100%; }
+
+        /* ZONE JEU */
+        #game-stage {
+            position: relative; display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            border-right: 1px solid #333;
+            background: radial-gradient(circle at center, #0a0a10 0%, #000 100%);
+        }
+
+        /* Instabilité */
+        .heat-container {
+            position: absolute; top: 10px; width: 80%; display: flex; flex-direction: column; align-items: center;
+        }
+        .heat-bar-bg { width: 100%; height: 8px; background: #222; border: 1px solid #444; border-radius: 4px; overflow: hidden; margin-top: 5px;}
+        #heat-bar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #0f0, #ff0, #f00); transition: width 1s linear; }
+        .overheat-msg { color: var(--danger); font-weight: bold; animation: pulse 0.5s infinite; display: none; margin-top:5px; font-size: 0.8rem;}
+        @keyframes pulse { 0%{opacity:1} 50%{opacity:0.5} }
+
+        #total-score { font-family: var(--font-head); font-size: 3.5rem; color: #fff; text-shadow: 0 0 40px var(--primary); margin: 0; z-index: 10; }
+        .speed-display { font-size: 1rem; color: #888; margin-bottom: 20px; }
+
+        /* CUBE & SKINS (Renforcé) */
+        .scene { width: 220px; height: 220px; margin: 20px 0; perspective: 800px; cursor: pointer; z-index: 5; }
+        .cube { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transform: translateZ(-110px); animation: spin 20s linear infinite; }
+        
+        /* Face par défaut (Bleu) */
+        .cube-face {
+            position: absolute; width: 220px; height: 220px;
+            border: 2px solid var(--primary); background: rgba(0, 247, 255, 0.05);
+            box-shadow: 0 0 40px rgba(0, 247, 255, 0.1);
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.5s ease; /* Transition fluide */
+        }
+
+        /* SKINS - FORCE AVEC !important */
+        .cube.skin-matrix .cube-face { border-color: #0f0 !important; background: rgba(0,255,0,0.1) !important; box-shadow: 0 0 30px #0f0 !important; }
+        .cube.skin-neon .cube-face { border-color: #f0f !important; background: rgba(255,0,255,0.15) !important; box-shadow: 0 0 40px #f0f, inset 0 0 20px #0ff !important; }
+        .cube.skin-gold .cube-face { border-color: #ffd700 !important; background: rgba(255,215,0,0.1) !important; box-shadow: 0 0 30px #ffd700 !important; }
+        
+        .f-f { transform: rotateY(0deg) translateZ(110px); }
+        .f-b { transform: rotateY(180deg) translateZ(110px); }
+        .f-l { transform: rotateY(-90deg) translateZ(110px); }
+        .f-r { transform: rotateY(90deg) translateZ(110px); }
+        .f-t { transform: rotateX(90deg) translateZ(110px); }
+        .f-bt { transform: rotateX(-90deg) translateZ(110px); }
+        @keyframes spin { 0% { transform: rotateX(0) rotateY(0); } 100% { transform: rotateX(360deg) rotateY(360deg); } }
+
+        /* HUD */
+        .hud-container { display: flex; gap: 5px; margin-top: 20px; flex-wrap: wrap; justify-content: center; width: 90%; }
+        .hud-box { background: rgba(20,20,30,0.8); border: 1px solid #333; padding: 5px 8px; border-radius: 4px; text-align: center; min-width: 60px; flex: 1; }
+        .hud-box b { display: block; font-size: 0.9rem; }
+        .hud-box span { font-size: 0.5rem; color: #888; text-transform: uppercase; }
+
+        /* ZONE COMMU */
+        #comm-panel { display: flex; flex-direction: column; padding: 20px; border-right: 1px solid #333; background: #08080a; }
+        .post-it {
+            background: #f7e98e; color: #333; padding: 15px; width: 90%; height: 250px; transform: rotate(-1deg);
+            box-shadow: 5px 5px 15px rgba(0,0,0,0.5); font-family: 'Kalam', cursive; font-size: 1.1rem;
+            display: flex; flex-direction: column; margin: 0 auto;
+        }
+        #comm-note { width: 100%; height: 100%; background: transparent; border: none; resize: none; outline: none; font-family: 'Kalam', cursive; font-size: 1rem; }
+        .flux-stats { margin-top: auto; text-align: center; padding: 20px; border-top: 1px solid #333; }
+        .flux-val { font-size: 2rem; color: var(--secondary); font-weight: bold; text-shadow: 0 0 15px var(--secondary); }
+
+        /* SIDEBAR */
+        #sidebar { background: var(--panel); overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; }
+        .panel { border: 1px solid #333; background: rgba(255,255,255,0.02); padding: 10px; border-radius: 4px; }
+        h2 { margin: 0 0 5px 0; font-size: 0.8rem; border-bottom: 1px solid #444; padding-bottom: 4px; color: var(--primary); letter-spacing: 1px; }
+
+        button { width: 100%; padding: 8px 10px; cursor: pointer; border: none; font-weight: bold; font-family: var(--font-mono); margin-top: 5px; text-transform: uppercase; font-size: 0.75rem; display: flex; justify-content: space-between; align-items: center; transition: 0.2s; }
+        button:hover:not(:disabled) { filter: brightness(1.2); }
+        button:disabled { opacity: 0.5; cursor: default; }
+        .btn-status { font-size: 0.65rem; background: rgba(0,0,0,0.3); padding: 2px 5px; border-radius: 3px; }
+
+        .btn-daily { background: var(--daily); color: #000; }
+        .btn-maint { background: var(--danger); color: #000; }
+        .btn-logic { background: var(--logic); color: #fff; }
+        .btn-flux { background: var(--secondary); color: #fff; }
+        .btn-glyph { background: #fff; color: #000; border: 2px solid #000; }
+        .btn-hack { background: #222; color: #fff; border: 1px solid #555; }
+        .btn-warp { background: linear-gradient(45deg, #004, #008); color: #fff; border: 1px solid #44f; }
+        .btn-prestige { background: var(--prestige); color: #fff; box-shadow: 0 0 10px var(--prestige); justify-content: center; }
+
+        .shop-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #222; cursor: pointer; }
+        .shop-row:hover { background: rgba(255,255,255,0.05); }
+        .shop-row.disabled { opacity: 0.3; pointer-events: none; }
+
+        /* MODALS */
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 100; display: none; align-items: center; justify-content: center; }
+        .modal-box { background: #111; border: 2px solid var(--primary); padding: 20px; width: 90%; max-width: 500px; text-align: center; }
+
+        .simon-grid, .hack-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 20px auto; width: 180px; }
+        .cell { height: 50px; background: #222; border: 1px solid #444; cursor: pointer; }
+        .cell.lit { background: var(--secondary); box-shadow: 0 0 20px var(--secondary); border-color: #fff; }
+        .cell.on { background: var(--success); box-shadow: 0 0 10px var(--success); border-color: #fff; }
+
+        .glyph-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin: 20px 0; }
+        .glyph-cell { font-size: 1.5rem; background: #222; padding: 10px; cursor: pointer; border: 1px solid #444; }
+        .glyph-target { font-size: 2rem; color: var(--success); letter-spacing: 5px; margin-bottom: 10px; }
+
+        /* CIRCUIT LOGIQUE COMPLEXE */
+        .circuit-board { display: flex; flex-direction: column; gap: 10px; align-items: center; margin: 20px 0; }
+        .gate-row { display: flex; gap: 30px; justify-content: center; margin-bottom: 5px;}
+        .switch { width: 35px; height: 35px; border: 2px solid #555; background: #222; display: flex; align-items: center; justify-content: center; cursor: pointer; color:#fff; font-size:0.8rem;}
+        .switch.on { background: var(--logic); border-color: #fff; box-shadow: 0 0 10px var(--logic); }
+        .gate { background: #333; padding: 4px 8px; font-size: 0.7rem; border: 1px solid #666; color:#aaa; min-width:30px; }
+        .wire-v { height:15px; width:2px; background:#444; margin:0 auto; }
+        
+        @media(max-width: 900px) { body { grid-template-rows: auto auto; } #main-layout { grid-template-columns: 1fr; } #game-stage { height: 50vh; } }
+    </style>
+</head>
+<body>
+
+    <div id="binary-vis"></div>
+
+    <div id="main-layout">
+        <div id="game-stage">
+            <div class="heat-container">
+                <div style="width:100%; display:flex; justify-content:space-between; font-size:0.7rem; color:#888;">
+                    <span>STABILITÉ (12H)</span>
+                    <button id="btn-cool-main" style="width:auto; padding:2px 10px; margin:0; background:#222; border:1px solid #555;">REFROIDIR</button>
+                </div>
+                <div class="heat-bar-bg"><div id="heat-bar-fill"></div></div>
+                <div class="overheat-msg" id="overheat-warn">⚠️ SURCHAUFFE: PROD / 2 ⚠️</div>
+            </div>
+
+            <div style="position: absolute; top:50px; left:15px; color:#0f0; font-size:0.7rem;">
+                <span id="online-users">1</span> LIAISONS
+            </div>
+
+            <div id="total-score">0</div>
+            <div class="speed-display" id="global-speed">(+ 0 / sec)</div>
+
+            <div class="scene" id="click-zone">
+                <div class="cube" id="the-cube">
+                    <div class="cube-face f-f"></div><div class="cube-face f-b"></div><div class="cube-face f-l"></div>
+                    <div class="cube-face f-r"></div><div class="cube-face f-t"></div><div class="cube-face f-bt"></div>
+                </div>
+            </div>
+
+            <div class="hud-container">
+                <div class="hud-box" style="border-color:var(--danger)"><b id="hud-maint">x1.0</b><span>MAINT</span></div>
+                <div class="hud-box" style="border-color:var(--daily)"><b id="hud-daily">^1.0</b><span>DAILY</span></div>
+                <div class="hud-box" style="border-color:var(--logic)"><b id="hud-logic">x1.0</b><span>LOGIC</span></div>
+                <div class="hud-box" style="border-color:var(--secondary)"><b id="hud-flux">+0/s</b><span>FLUX</span></div>
+                <div class="hud-box" style="border-color:var(--prestige)"><b id="hud-prestige">0</b><span>SING.</span></div>
+            </div>
+        </div>
+
+        <div id="comm-panel">
+            <div class="post-it">
+                <div style="border-bottom:1px dashed #333; margin-bottom:10px; font-weight:bold;">NOTE DU RÉSEAU</div>
+                <textarea id="comm-note" maxlength="500" placeholder="..."></textarea>
+            </div>
+            <div class="flux-stats">
+                <div style="font-size:0.8rem; color:#888;">PRODUCTION LOCALE</div>
+                <div class="flux-val" id="local-cps">0</div>
+                <div style="font-size:0.8rem; color:#666;">clics/sec</div>
+            </div>
+        </div>
+
+        <div id="sidebar">
+            <div class="panel">
+                <h2>PROTOCOLES</h2>
+                <button class="btn-daily" id="btn-daily"><span>DAILY (^1.35)</span><span class="btn-status" id="st-daily">...</span></button>
+                <button class="btn-maint" id="btn-maint"><span>MAINTENANCE (x2)</span><span class="btn-status" id="st-maint">...</span></button>
+                <button class="btn-logic" id="btn-logic"><span>PORTES (x1.15)</span><span class="btn-status" id="st-logic">...</span></button>
+            </div>
+
+            <div class="panel">
+                <h2 style="color:#fff">FARMING</h2>
+                <button class="btn-flux" id="btn-flux"><span>GÉNÉRATEUR FLUX</span><span class="btn-status">+1/s</span></button>
+                <button class="btn-glyph" id="btn-glyph"><span>GLYPH BREACH</span><span class="btn-status">MN $$</span></button>
+                <button class="btn-hack" id="btn-hack"><span>LIGHTS OUT</span><span class="btn-status">MN $$</span></button>
+            </div>
+
+            <div class="panel">
+                <h2>MATIÈRE NOIRE: <span id="mn-display" style="color:#fff">0</span></h2>
+                <div class="shop-row" id="buy-bot"><div><span class="s-name">Sonde</span><div style="font-size:0.6rem; color:#888;">+1/s</div></div><span class="s-cost" id="cost-bot">50</span></div>
+                <div class="shop-row" id="buy-net"><div><span class="s-name" style="color:var(--secondary)">Réseau Neuronal</span><div style="font-size:0.6rem; color:#888;">+10/s</div></div><span class="s-cost" id="cost-net">2.5k</span></div>
+                <div style="margin-top:10px; border-top:1px solid #333; padding-top:10px;">
+                    <div style="font-size:0.6rem; color:#aaa; margin-bottom:5px">DISTORSION (5 MIN PROD)</div>
+                    <button class="btn-warp" id="btn-warp">ACTIVER (<span id="cost-warp">5000</span>)</button>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2 style="color:var(--prestige)">SINGULARITÉ</h2>
+                <button class="btn-prestige" id="btn-prestige">RESET (1M MN)</button>
+            </div>
+            
+            <div class="panel">
+                <h2>SKINS</h2>
+                <div class="shop-row" id="buy-skin-matrix"><span>Matrix</span><span style="color:#0f0">10k</span></div>
+                <div class="shop-row" id="buy-skin-neon"><span>Neon</span><span style="color:#f0f">500k</span></div>
+                <div class="shop-row" id="buy-skin-gold"><span>Gold</span><span style="color:#ffd700">50k</span></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="modal-daily"><div class="modal-box"><h2 style="color:var(--daily)">ALIGNEMENT</h2><div style="background:#333; height:30px; position:relative; margin:20px 0; overflow:hidden;"><div style="position:absolute; left:45%; width:10%; height:100%; border:1px solid #0f0; background:rgba(0,255,0,0.2)"></div><div id="daily-cursor" style="position:absolute; left:0; width:4px; height:100%; background:#fff;"></div></div><button onclick="stopDaily()" style="background:#fff; color:#000">STOP</button></div></div>
+    <div class="modal" id="modal-flux"><div class="modal-box"><h2 style="color:var(--secondary)">MÉMORISEZ...</h2><div class="simon-grid" id="simon-grid"></div><div id="simon-status">Prêt ?</div></div></div>
+    <div class="modal" id="modal-glyph"><div class="modal-box"><h2>BREACH</h2><div class="glyph-target" id="glyph-target">...</div><div class="glyph-grid" id="glyph-grid"></div><div id="glyph-timer" style="color:var(--danger)">10s</div></div></div>
+    <div class="modal" id="modal-hack"><div class="modal-box"><h2>ÉTEIGNEZ TOUT</h2><div class="simon-grid" id="hack-grid"></div><button onclick="document.getElementById('modal-hack').style.display='none'">FERMER</button></div></div>
+
+    <div class="modal" id="modal-logic"><div class="modal-box"><h2 style="color:var(--logic)">CIRCUIT COMPLEXE</h2><p style="font-size:0.8rem">4 Entrées -> 2 Portes -> Sortie Finale</p><div id="circuit-board" class="circuit-board"></div><button onclick="document.getElementById('modal-logic').style.display='none'">FERMER</button></div></div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getDatabase, ref, onValue, runTransaction, serverTimestamp, set, onDisconnect } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyB0lwTP0tdgFtmliFk5RLPJyHxXaNvXbxA",
+        authDomain: "lechatderemi.firebaseapp.com",
+        databaseURL: "https://lechatderemi-default-rtdb.europe-west1.firebasedatabase.app",
+        projectId: "lechatderemi",
+        storageBucket: "lechatderemi.firebasestorage.app",
+        messagingSenderId: "703344968670",
+        appId: "1:703344968670:web:cc6c409376db0298df134f"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const DB_ROOT = 'ipsa_v11'; // IPSACLICKER VERSION
+
+    let p = {
+        mn: 0, bots: 0, nets: 0,
+        maintEnd: 0, dailyEnd: 0, lastDailyWin: 0, logicEnd: 0,
+        fluxSess: 0, skin: '', prestige: 0,
+        lastCoolDown: Date.now()
+    };
+
+    const saved = localStorage.getItem(DB_ROOT);
+    if(saved) { p = { ...p, ...JSON.parse(saved), fluxSess:0 }; }
+    applySkin(p.skin);
+
+    const scoreRef = ref(db, `${DB_ROOT}/score`);
+    const noteRef = ref(db, `${DB_ROOT}/note`);
+    const presRef = ref(db, `${DB_ROOT}/presence`);
+    const myPres = ref(db, `${DB_ROOT}/presence/${Date.now()}`);
+
+    function fmt(n) {
+        if(n<1000) return Math.floor(n);
+        const s=["","k","M","B","T","Qa"];
+        const i=Math.floor((""+Math.floor(n)).length/3);
+        return parseFloat((n/Math.pow(1000,i)).toPrecision(3))+s[i]||"Inf";
+    }
+
+    const binGrid = document.getElementById('binary-vis');
+    for(let i=0; i<40; i++) { const d=document.createElement('div'); d.className='bit'; binGrid.appendChild(d); }
+    function updateBinary(n) {
+        const bin = Math.floor(n).toString(2).split('').reverse();
+        const bits = binGrid.children;
+        for(let i=0; i<bits.length; i++) {
+            if(i < bin.length && bin[i] === '1') bits[i].classList.add('on');
+            else bits[i].classList.remove('on');
+        }
+    }
+
+    let globalScore=0, lastScore=0, lastTime=Date.now(), clickBuff=0, currentCps=0, isOverheat=false;
+
+    onValue(scoreRef, s => {
+        globalScore = s.val() || 0;
+        document.getElementById('total-score').innerText = fmt(globalScore);
+        if(Math.random()>0.5) updateBinary(globalScore);
+        const now = Date.now();
+        if(now - lastTime > 1000) {
+            const spd = Math.max(0, Math.floor((globalScore - lastScore) / ((now-lastTime)/1000)));
+            document.getElementById('global-speed').innerText = `(+ ${fmt(spd)} / sec)`;
+            lastScore = globalScore; lastTime = now;
+        }
+    });
+    onValue(noteRef, s => { if(document.activeElement.id !== 'comm-note') document.getElementById('comm-note').value = s.val() || ""; });
+    document.getElementById('comm-note').addEventListener('change', e => set(noteRef, e.target.value));
+    onValue(ref(db, ".info/connected"), s => { if(s.val()) { onDisconnect(myPres).remove(); set(myPres, true); }});
+    onValue(presRef, s => document.getElementById('online-users').innerText = s.numChildren());
+
+    setInterval(() => {
+        const now = Date.now();
+        
+        // Instabilité 12H
+        const TWELVE_HOURS = 12 * 60 * 60 * 1000;
+        let heatPct = Math.min(100, ((now - p.lastCoolDown) / TWELVE_HOURS) * 100);
+        document.getElementById('heat-bar-fill').style.width = heatPct + "%";
+        if(heatPct >= 100) { isOverheat = true; document.getElementById('overheat-warn').style.display = 'block'; } 
+        else { isOverheat = false; document.getElementById('overheat-warn').style.display = 'none'; }
+
+        // Multiplicateurs
+        let mM = (p.maintEnd > now) ? 2.0 : 1.0;
+        let pD = (p.dailyEnd > now) ? 1.35 : 1.0;
+        let pL = (p.logicEnd > now) ? 1.15 : 1.0;
+        let mP = 1 + (p.prestige * 0.20);
+
+        // Update Buttons Timers
+        updateBtn('btn-daily', 'st-daily', p.dailyEnd, "08:00");
+        updateBtn('btn-maint', 'st-maint', p.maintEnd, "PRET");
+        updateBtn('btn-logic', 'st-logic', p.logicEnd, "PRET");
+
+        // HUD
+        ui('hud-maint', mM>1, "x2.0", "x1.0", "var(--success)", "var(--danger)");
+        ui('hud-daily', pD>1, "^1.35", "^1.0", "var(--daily)", "#666");
+        ui('hud-logic', pL>1, "x1.15", "x1.0", "var(--logic)", "#666");
+        document.getElementById('hud-flux').innerText = "+"+p.fluxSess+"/s";
+        document.getElementById('hud-prestige').innerText = p.prestige;
+        document.getElementById('mn-display').innerText = fmt(p.mn);
+
+        updateShop();
+        checkDaily();
+
+        // Prod
+        let base = (p.bots * 1) + (p.nets * 10) + p.fluxSess;
+        if(base > 0) {
+            let total = Math.pow(base * mM * pL * mP, pD);
+            if(isOverheat) total *= 0.5;
+            currentCps = total;
+            document.getElementById('local-cps').innerText = fmt(total);
+            clickBuff += total / 30;
+            if(clickBuff >= 1) { const send = Math.floor(clickBuff); clickBuff -= send; p.mn += send; runTransaction(scoreRef, s => (s||0)+send); }
+        } else { currentCps = 0; document.getElementById('local-cps').innerText = "0"; }
+
+    }, 33);
+    setInterval(() => localStorage.setItem(DB_ROOT, JSON.stringify(p)), 2000);
+
+    function ui(id, c, tY, tN, cY, cN) { const el=document.getElementById(id); el.innerText=c?tY:tN; el.style.color=c?cY:cN; }
+    function updateBtn(btnId, spanId, endTime, readyText) {
+        const btn = document.getElementById(btnId);
+        const span = document.getElementById(spanId);
+        if(endTime > Date.now()) {
+            btn.disabled = true;
+            const min = Math.ceil((endTime - Date.now())/60000);
+            span.innerText = "ACTIF (" + min + " min)"; // Fix M to min
+            span.style.color = "#fff";
+        } else {
+            if(btnId !== 'btn-daily') btn.disabled = false;
+            span.innerText = readyText; span.style.color = "#ccc";
+        }
+    }
+
+    document.getElementById('btn-cool-main').onclick = () => { p.lastCoolDown = Date.now(); };
+
+    // --- DAILY ---
+    let dAnim, dPos=0, dDir=1;
+    function checkDaily() {
+        let r=new Date().setHours(8,0,0,0); if(new Date().getHours()<8)r-=86400000;
+        const b=document.getElementById('btn-daily'), s=document.getElementById('st-daily');
+        if(p.dailyEnd > Date.now()) return;
+        if(p.lastDailyWin < r) { b.disabled=false; s.innerText="PRET"; } else { b.disabled=true; s.innerText="TERMINE"; }
+    }
+    document.getElementById('btn-daily').onclick = () => { document.getElementById('modal-daily').style.display='flex'; dPos=0; dDir=1; function l(){dPos+=1.5*dDir; if(dPos>100||dPos<0)dDir*=-1; document.getElementById('daily-cursor').style.left=dPos+"%"; dAnim=requestAnimationFrame(l);} l(); };
+    window.stopDaily = () => { cancelAnimationFrame(dAnim); document.getElementById('modal-daily').style.display='none'; if(dPos>=45&&dPos<=55){alert("SUCCES"); p.dailyEnd=Date.now()+3600000; p.lastDailyWin=Date.now();} else alert("RATE"); };
+
+    // --- MAINT ---
+    document.getElementById('btn-maint').onclick = () => {
+        if(p.maintEnd>Date.now())return;
+        const a=Math.floor(Math.random()*50)+10, b=Math.floor(Math.random()*40)+1;
+        if(parseInt(prompt(`${a}+${b}?`))===a+b){p.maintEnd=Date.now()+7200000; alert("OK");}
+    };
+
+    // --- FLUX ---
+    document.getElementById('btn-flux').onclick = () => { document.getElementById('modal-flux').style.display='flex'; initSimon(); };
+    function initSimon() {
+        const g=document.getElementById('simon-grid'); g.innerHTML='';
+        for(let i=0; i<9; i++){const d=document.createElement('div'); d.className='cell'; d.dataset.id=i; g.appendChild(d);}
+        const s=[0,1,2,3,4,5,6,7,8].sort(()=>Math.random()-0.5).slice(0,3);
+        let idx=0, click=false, k=0;
+        const int=setInterval(()=>{
+            if(k>=3){clearInterval(int); document.getElementById('simon-status').innerText="GO"; click=true; return;}
+            const c=g.children[s[k]]; c.classList.add('lit'); setTimeout(()=>c.classList.remove('lit'), 300); k++;
+        }, 600);
+        Array.from(g.children).forEach(c=>{c.onclick=()=>{
+            if(!click)return; c.classList.add('lit'); setTimeout(()=>c.classList.remove('lit'),100);
+            if(parseInt(c.dataset.id)===s[idx]){idx++; if(idx>=3){p.fluxSess++; document.getElementById('modal-flux').style.display='none';}}
+            else{document.getElementById('modal-flux').style.display='none'; alert("Rate");}
+        }});
+    }
+
+    // --- COMPLEX LOGIC GATE ---
+    document.getElementById('btn-logic').onclick = () => { if(p.logicEnd>Date.now())return; document.getElementById('modal-logic').style.display='flex'; initGate(); };
+    function initGate() {
+        const b=document.getElementById('circuit-board'); b.innerHTML='';
+        let inputs=[0,0,0,0]; // 4 inputs
+        const gT=[0,0,0].map(()=>Math.floor(Math.random()*3)); // 3 gates (A, B, Final)
+
+        function r(){
+            b.innerHTML='';
+            // Row 1: 4 Inputs
+            const r1=document.createElement('div'); r1.className='gate-row';
+            inputs.forEach((v,i)=>{const s=document.createElement('div'); s.className='switch '+(v?'on':''); s.innerText=v; s.onclick=()=>{inputs[i]=1-inputs[i];r();}; r1.appendChild(s);});
+            b.appendChild(r1);
+            
+            // Wires visual
+            const w1=document.createElement('div'); w1.innerHTML='<div style="font-size:0.5rem;color:#555">▼  ▼  ▼  ▼</div>'; b.appendChild(w1);
+
+            // Row 2: Gates A & B
+            const r2=document.createElement('div'); r2.className='gate-row';
+            r2.innerHTML=`<div class="gate">${gN(gT[0])}</div><div class="gate">${gN(gT[1])}</div>`; b.appendChild(r2);
+
+            // Row 3: Final Gate
+            const r3=document.createElement('div'); r3.className='gate-row';
+            r3.innerHTML=`<div class="gate">${gN(gT[2])}</div>`; b.appendChild(r3);
+            
+            // Logic Eval
+            // Gate A takes Input 0 & 1
+            const resA = eV(gT[0], inputs[0], inputs[1]);
+            // Gate B takes Input 2 & 3
+            const resB = eV(gT[1], inputs[2], inputs[3]);
+            // Final takes A & B
+            const fin = eV(gT[2], resA, resB);
+
+            // Output
+            const bulb=document.createElement('div'); bulb.className='switch '+(fin?'on':''); bulb.style.borderRadius="50%"; b.appendChild(bulb);
+            
+            if(fin){setTimeout(()=>{document.getElementById('modal-logic').style.display='none'; p.logicEnd=Date.now()+3600000; alert("OK");},300);}
+        }
+        r();
+    }
+    function gN(t){return['AND','OR','XOR'][t]} function eV(t,a,b){if(t==0)return(a&&b)?1:0;if(t==1)return(a||b)?1:0;return(a!=b)?1:0;}
+
+    // --- GLYPH ---
+    const glyphs=['Ω','Σ','Π','Δ','Ψ','Φ','Γ','Λ','Ξ','Θ']; let gSeq=[], gIdx=0, gTimer;
+    document.getElementById('btn-glyph').onclick=()=>{document.getElementById('modal-glyph').style.display='flex'; initGlyph();};
+    function initGlyph(){
+        const g=document.getElementById('glyph-grid'); g.innerHTML='';
+        const board=[...glyphs].sort(()=>Math.random()-0.5).slice(0,16);
+        board.forEach(c=>{const d=document.createElement('div'); d.className='glyph-cell'; d.innerText=c; d.onclick=()=>checkG(c,d); g.appendChild(d);});
+        gSeq=board.slice(0,3).sort(()=>Math.random()-0.5); gIdx=0;
+        document.getElementById('glyph-target').innerText=gSeq.join(' ');
+        let t=10.0; clearInterval(gTimer);
+        gTimer=setInterval(()=>{t-=0.1; document.getElementById('glyph-timer').innerText=t.toFixed(1); if(t<=0){clearInterval(gTimer);document.getElementById('modal-glyph').style.display='none';}},100);
+    }
+    function checkG(c,d){
+        if(c===gSeq[gIdx]){d.style.background="#0f0"; gIdx++; if(gIdx>=3){clearInterval(gTimer); document.getElementById('modal-glyph').style.display='none'; p.mn+=Math.max(100, Math.floor(currentCps*300)); alert("MN ++");}}
+        else d.style.background="#f00";
+    }
+
+    // --- HACK ---
+    document.getElementById('btn-hack').onclick=()=>{document.getElementById('modal-hack').style.display='flex'; initHack();};
+    function initHack(){
+        const g=document.getElementById('hack-grid'); g.innerHTML=''; let s=[0,0,0,0,0,0,0,0,0];
+        const tog=(i)=>{s[i]=!s[i]; if(i%3>0)s[i-1]=!s[i-1]; if(i%3<2)s[i+1]=!s[i+1]; if(i>=3)s[i-3]=!s[i-3]; if(i<6)s[i+3]=!s[i+3]; ren(); if(s.every(x=>!x)){p.mn+=2000; alert("+2k MN"); document.getElementById('modal-hack').style.display='none';}};
+        const ren=()=>{Array.from(g.children).forEach((c,i)=>c.className='cell '+(s[i]?'on':''));};
+        s.forEach((_,i)=>{const d=document.createElement('div'); d.className='cell'; d.onclick=()=>tog(i); g.appendChild(d);});
+        for(let k=0;k<10;k++)tog(Math.floor(Math.random()*9));
+    }
+
+    // --- SHOP ---
+    function updateShop() {
+        const cBot = Math.floor(50 * Math.pow(1.15, p.bots)); document.getElementById('cost-bot').innerText=fmt(cBot);
+        bindBtn('buy-bot', cBot, ()=>{p.mn-=cBot; p.bots++;});
+        const cNet = Math.floor(2500 * Math.pow(1.15, p.nets)); document.getElementById('cost-net').innerText=fmt(cNet);
+        bindBtn('buy-net', cNet, ()=>{p.mn-=cNet; p.nets++;});
+        let wCost = Math.max(5000, Math.floor(currentCps*300)); document.getElementById('cost-warp').innerText=fmt(wCost);
+        bindBtn('btn-warp', wCost, ()=>{if(confirm("Warp?")){p.mn-=wCost; runTransaction(scoreRef, s=>(s||0)+(currentCps*300)); alert("Warped");}});
+        document.getElementById('btn-prestige').onclick=()=>{if(p.mn>=1000000 && confirm("RESET?")){p.mn=0; p.bots=0; p.nets=0; p.fluxSess=0; p.prestige++; alert("GG");}};
+        bindSkin('buy-skin-matrix','skin-matrix',10000); bindSkin('buy-skin-neon','skin-neon',500000); bindSkin('buy-skin-gold','skin-gold',50000);
+    }
+    function bindBtn(id, cost, act) { const el=document.getElementById(id); if(p.mn>=cost){el.classList.remove('disabled'); el.onclick=act;}else{el.classList.add('disabled'); el.onclick=null;} }
+    function bindSkin(id,s,c){bindBtn(id,c,()=>{if(confirm("Buy?")){p.mn-=c;p.skin=s;applySkin(s);}});}
+    function applySkin(s){document.getElementById('the-cube').className="cube "+s;}
+
+    // --- CLICK ---
+    document.getElementById('click-zone').addEventListener('pointerdown', (e) => {
+        let mM = (p.maintEnd > Date.now()) ? 2.0 : 1.0; let pD = (p.dailyEnd > Date.now()) ? 1.35 : 1.0;
+        let pL = (p.logicEnd > Date.now()) ? 1.15 : 1.0; let mP = 1 + (p.prestige * 0.20);
+        let val = Math.max(1, Math.floor(Math.pow(1 * mM * pL * mP, pD)));
+        if(isOverheat) val = Math.floor(val/2);
+        p.mn += val; runTransaction(scoreRef, s => (s||0)+val);
+        const d=document.createElement('div'); d.innerText="+"+fmt(val); d.style.cssText=`position:fixed; left:${e.clientX}px; top:${e.clientY}px; color:#fff; pointer-events:none; animation:float 1s forwards; font-weight:bold; z-index:99`;
+        document.body.appendChild(d); setTimeout(()=>d.remove(),1000);
+        const c=document.getElementById('the-cube'); c.style.transform="translateZ(-115px)"; setTimeout(()=>c.style.transform="",100);
+    });
+    const st=document.createElement('style'); st.innerHTML="@keyframes float { to { transform:translateY(-50px); opacity:0 }}"; document.head.appendChild(st);
+
+</script>
+</body>
+</html>
