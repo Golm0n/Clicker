@@ -3,253 +3,241 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IpsaClicker</title>
+    <title>Clicker</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&family=Share+Tech+Mono&family=Kalam:wght@700&display=swap" rel="stylesheet">
     
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
     <style>
-        :root {
-            --bg: #050508;
-            --panel: #111116;
-            --primary: #00f7ff;
-            --secondary: #ff00e6;
-            --danger: #ff3333;
-            --success: #33ff33;
-            --daily: #ffd700;
-            --logic: #3b82f6;
-            --prestige: #a600ff;
-            --font-mono: 'Share Tech Mono', monospace;
-            --font-head: 'Orbitron', sans-serif;
-        }
-
-        body {
-            margin: 0; background: var(--bg); color: #eee;
-            font-family: var(--font-mono); height: 100vh; overflow: hidden;
-            display: grid; grid-template-rows: auto 1fr;
-            user-select: none;
-        }
-
-        /* BINARY VIS */
-        #binary-vis {
-            height: 20px; background: #000; border-bottom: 1px solid #333;
-            display: flex; flex-direction: row-reverse; align-items: center; justify-content: center;
-            gap: 2px; padding: 2px 10px; overflow: hidden;
-        }
-        .bit { width: 12px; height: 100%; background: #1a1a1a; transition: background 0.05s; }
-        .bit.on { background: var(--primary); box-shadow: 0 0 5px var(--primary); }
-
-        #main-layout { display: grid; grid-template-columns: 1fr 300px 380px; height: 100%; }
-
-        /* ZONE JEU */
-        #game-stage {
-            position: relative; display: flex; flex-direction: column;
-            align-items: center; justify-content: center;
-            border-right: 1px solid #333;
-            background: radial-gradient(circle at center, #0a0a10 0%, #000 100%);
-        }
-
-        /* Instabilité */
-        .heat-container {
-            position: absolute; top: 10px; width: 80%; display: flex; flex-direction: column; align-items: center;
-        }
-        .heat-bar-bg { width: 100%; height: 8px; background: #222; border: 1px solid #444; border-radius: 4px; overflow: hidden; margin-top: 5px;}
-        #heat-bar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #0f0, #ff0, #f00); transition: width 1s linear; }
-        .overheat-msg { color: var(--danger); font-weight: bold; animation: pulse 0.5s infinite; display: none; margin-top:5px; font-size: 0.8rem;}
-        @keyframes pulse { 0%{opacity:1} 50%{opacity:0.5} }
-
-        #total-score { font-family: var(--font-head); font-size: 3.5rem; color: #fff; text-shadow: 0 0 40px var(--primary); margin: 0; z-index: 10; }
-        .speed-display { font-size: 1rem; color: #888; margin-bottom: 20px; }
-
-        /* CUBE & SKINS (Renforcé) */
-        .scene { width: 220px; height: 220px; margin: 20px 0; perspective: 800px; cursor: pointer; z-index: 5; }
-        .cube { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transform: translateZ(-110px); animation: spin 20s linear infinite; }
+        :root{--bg:#050508;--panel:#111115;--primary:#00f7ff;--secondary:#ff00e6;--danger:#ff3333;--success:#33ff33;--daily:#ffd700;--logic:#3b82f6;--prestige:#a600ff;--chaos:#ff5500;--font-mono:'Share Tech Mono',monospace;--font-head:'Orbitron',sans-serif;}
+        body{margin:0;background:var(--bg);color:#eee;font-family:var(--font-mono);height:100vh;overflow:hidden;display:grid;grid-template-rows:auto 1fr;user-select:none;}
         
-        /* Face par défaut (Bleu) */
-        .cube-face {
-            position: absolute; width: 220px; height: 220px;
-            border: 2px solid var(--primary); background: rgba(0, 247, 255, 0.05);
-            box-shadow: 0 0 40px rgba(0, 247, 255, 0.1);
-            display: flex; align-items: center; justify-content: center;
-            transition: all 0.5s ease; /* Transition fluide */
-        }
+        #binary-vis{height:16px;background:#000;border-bottom:1px solid #333;display:flex;gap:2px;justify-content:center;overflow:hidden;padding:2px;}
+        .bit{width:8px;background:#1a1a1a;transition:0.1s;} .bit.on{background:var(--primary);box-shadow:0 0 5px var(--primary);}
 
-        /* SKINS - FORCE AVEC !important */
-        .cube.skin-matrix .cube-face { border-color: #0f0 !important; background: rgba(0,255,0,0.1) !important; box-shadow: 0 0 30px #0f0 !important; }
-        .cube.skin-neon .cube-face { border-color: #f0f !important; background: rgba(255,0,255,0.15) !important; box-shadow: 0 0 40px #f0f, inset 0 0 20px #0ff !important; }
-        .cube.skin-gold .cube-face { border-color: #ffd700 !important; background: rgba(255,215,0,0.1) !important; box-shadow: 0 0 30px #ffd700 !important; }
+        #main-layout{display:grid;grid-template-columns:250px 1fr 250px 350px;height:100%;}
         
-        .f-f { transform: rotateY(0deg) translateZ(110px); }
-        .f-b { transform: rotateY(180deg) translateZ(110px); }
-        .f-l { transform: rotateY(-90deg) translateZ(110px); }
-        .f-r { transform: rotateY(90deg) translateZ(110px); }
-        .f-t { transform: rotateX(90deg) translateZ(110px); }
-        .f-bt { transform: rotateX(-90deg) translateZ(110px); }
-        @keyframes spin { 0% { transform: rotateX(0) rotateY(0); } 100% { transform: rotateX(360deg) rotateY(360deg); } }
+        /* 1. CLASSEMENT */
+        #leaderboard-panel{background:#08080a;border-right:1px solid #333;padding:15px;display:flex;flex-direction:column;}
+        .lb-header{border-bottom:1px solid #333;padding-bottom:10px;margin-bottom:10px;}
+        .lb-title{color:var(--primary);font-size:1.1rem;margin-bottom:5px;display:block;}
+        .lb-count{color:#888;font-size:0.7rem;display:block;}
+        .lb-row{display:grid;grid-template-columns:30px 1fr auto;gap:10px;font-size:0.85rem;padding:8px 5px;border-bottom:1px solid #222;align-items:center;}
+        .lb-row.me{color:var(--secondary);background:rgba(255,0,230,0.05);font-weight:bold;}
+        .lb-rank{color:#666;} .lb-val{color:#fff;}
 
-        /* HUD */
-        .hud-container { display: flex; gap: 5px; margin-top: 20px; flex-wrap: wrap; justify-content: center; width: 90%; }
-        .hud-box { background: rgba(20,20,30,0.8); border: 1px solid #333; padding: 5px 8px; border-radius: 4px; text-align: center; min-width: 60px; flex: 1; }
-        .hud-box b { display: block; font-size: 0.9rem; }
-        .hud-box span { font-size: 0.5rem; color: #888; text-transform: uppercase; }
+        /* 2. JEU */
+        #game-stage{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(circle,#101015 0%,#000 100%);border-right:1px solid #333;}
+        .heat-container{position:absolute;top:10px;width:70%;} .heat-top{display:flex;justify-content:space-between;font-size:0.7rem;color:#888;}
+        .heat-bg{width:100%;height:8px;background:#222;border-radius:4px;overflow:hidden;margin-top:5px;} #heat-fill{height:100%;width:0%;background:linear-gradient(90deg,#0f0,#f00);}
+        #total-score{font-family:var(--font-head);font-size:3.5rem;color:#fff;text-shadow:0 0 30px var(--primary);margin:10px 0;}
+        #tier-display{color:var(--prestige);letter-spacing:2px;font-size:0.9rem;}
+        #global-cps{color:#666;font-size:0.8rem;margin-bottom:10px;}
 
-        /* ZONE COMMU */
-        #comm-panel { display: flex; flex-direction: column; padding: 20px; border-right: 1px solid #333; background: #08080a; }
-        .post-it {
-            background: #f7e98e; color: #333; padding: 15px; width: 90%; height: 250px; transform: rotate(-1deg);
-            box-shadow: 5px 5px 15px rgba(0,0,0,0.5); font-family: 'Kalam', cursive; font-size: 1.1rem;
-            display: flex; flex-direction: column; margin: 0 auto;
+        /* CUBE & FX */
+        .scene{width:220px;height:220px;margin:20px;perspective:1000px;cursor:pointer; position:relative;} 
+        .cube{width:100%;height:100%;position:relative;transform-style:preserve-3d;animation:spin 20s linear infinite; will-change: transform;}
+        .face{position:absolute;width:220px;height:220px;border:2px solid var(--primary);background:rgba(0,247,255,0.05);display:flex;align-items:center;justify-content:center;transition:0.3s;}
+        
+        /* --- NOUVEAUX EFFETS GLITCH --- */
+        /* Bandes horizontales */
+        #glitch-overlay {
+            position: absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:10;
+            background: repeating-linear-gradient(0deg, rgba(0,0,0,0) 0px, rgba(0,0,0,0) 4px, rgba(255,255,255,0.1) 5px, rgba(0,0,0,0) 6px);
+            opacity: 0; mix-blend-mode: overlay;
         }
-        #comm-note { width: 100%; height: 100%; background: transparent; border: none; resize: none; outline: none; font-family: 'Kalam', cursive; font-size: 1rem; }
-        .flux-stats { margin-top: auto; text-align: center; padding: 20px; border-top: 1px solid #333; }
-        .flux-val { font-size: 2rem; color: var(--secondary); font-weight: bold; text-shadow: 0 0 15px var(--secondary); }
+        /* Tremblement et Chromatic Aberration */
+        .glitch-active .cube-outer {
+            animation: spin 20s linear infinite, shake 0.2s cubic-bezier(.36,.07,.19,.97) infinite !important;
+        }
+        .glitch-active .face {
+            box-shadow: -2px 0 var(--danger), 2px 0 var(--primary) !important;
+        }
+        @keyframes shake {
+            10%, 90% { transform: translateZ(-110px) translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translateZ(-110px) translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translateZ(-110px) translate3d(-2px, 0, 0); }
+            40%, 60% { transform: translateZ(-110px) translate3d(2px, 0, 0); }
+        }
 
-        /* SIDEBAR */
-        #sidebar { background: var(--panel); overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; }
-        .panel { border: 1px solid #333; background: rgba(255,255,255,0.02); padding: 10px; border-radius: 4px; }
-        h2 { margin: 0 0 5px 0; font-size: 0.8rem; border-bottom: 1px solid #444; padding-bottom: 4px; color: var(--primary); letter-spacing: 1px; }
+        /* SKINS */
+        .cube.skin-matrix .face{border-color:#0f0!important;background:rgba(0,255,0,0.1)!important;box-shadow:0 0 20px #0f0!important;}
+        .cube.skin-neon .face{border-color:#f0f!important;background:rgba(255,0,255,0.15)!important;box-shadow:inset 0 0 20px #0ff!important;}
+        .cube.skin-gold .face{border-color:#ffd700!important;background:rgba(255,215,0,0.15)!important;box-shadow:0 0 30px #ffd700!important;}
 
-        button { width: 100%; padding: 8px 10px; cursor: pointer; border: none; font-weight: bold; font-family: var(--font-mono); margin-top: 5px; text-transform: uppercase; font-size: 0.75rem; display: flex; justify-content: space-between; align-items: center; transition: 0.2s; }
-        button:hover:not(:disabled) { filter: brightness(1.2); }
-        button:disabled { opacity: 0.5; cursor: default; }
-        .btn-status { font-size: 0.65rem; background: rgba(0,0,0,0.3); padding: 2px 5px; border-radius: 3px; }
+        .cube-inner{position:absolute;top:60px;left:60px;width:100px;height:100px;transform-style:preserve-3d;animation:spinRev 10s linear infinite;display:none;}
+        .cube-inner .face{width:100px;height:100px;border-color:var(--prestige);background:rgba(166,0,255,0.2);}
+        .cube-core{position:absolute;top:90px;left:90px;width:40px;height:40px;transform-style:preserve-3d;animation:spin 5s linear infinite;display:none;}
+        .cube-core .face{width:40px;height:40px;border-color:#fff;background:#fff;}
 
-        .btn-daily { background: var(--daily); color: #000; }
-        .btn-maint { background: var(--danger); color: #000; }
-        .btn-logic { background: var(--logic); color: #fff; }
-        .btn-flux { background: var(--secondary); color: #fff; }
-        .btn-glyph { background: #fff; color: #000; border: 2px solid #000; }
-        .btn-hack { background: #222; color: #fff; border: 1px solid #555; }
-        .btn-warp { background: linear-gradient(45deg, #004, #008); color: #fff; border: 1px solid #44f; }
-        .btn-prestige { background: var(--prestige); color: #fff; box-shadow: 0 0 10px var(--prestige); justify-content: center; }
+        .f-f{transform:translateZ(110px);} .f-b{transform:rotateY(180deg) translateZ(110px);} .f-l{transform:rotateY(-90deg) translateZ(110px);} .f-r{transform:rotateY(90deg) translateZ(110px);} .f-t{transform:rotateX(90deg) translateZ(110px);} .f-bt{transform:rotateX(-90deg) translateZ(110px);}
+        .i-f{transform:translateZ(50px);} .i-b{transform:rotateY(180deg) translateZ(50px);} .i-l{transform:rotateY(-90deg) translateZ(50px);} .i-r{transform:rotateY(90deg) translateZ(50px);} .i-t{transform:rotateX(90deg) translateZ(50px);} .i-bt{transform:rotateX(-90deg) translateZ(50px);}
+        @keyframes spin{0%{transform:rotateX(0) rotateY(0);}100%{transform:rotateX(360deg) rotateY(360deg);}} @keyframes spinRev{0%{transform:rotateX(0) rotateY(0);}100%{transform:rotateX(-360deg) rotateY(-360deg);}}
 
-        .shop-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #222; cursor: pointer; }
-        .shop-row:hover { background: rgba(255,255,255,0.05); }
-        .shop-row.disabled { opacity: 0.3; pointer-events: none; }
+        .hud-grid{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;} .hud-item{background:#1a1a20;border:1px solid #333;padding:5px;min-width:70px;text-align:center;border-radius:4px;} .active-buff{border-color:var(--success);color:var(--success);}
+
+        /* 3. COMMU */
+        #comm-panel{padding:15px;background:#0c0c10;border-right:1px solid #333;display:flex;flex-direction:column;}
+        .post-it{background:#f7e98e;color:#000;padding:10px;width:100%;flex:1;min-height:200px;box-shadow:2px 2px 10px #000;font-family:'Kalam',cursive;margin-bottom:20px;display:flex;flex-direction:column;box-sizing:border-box;transform:rotate(-1deg);}
+        #comm-note{flex:1;background:transparent;border:none;resize:none;font-family:inherit;font-size:1rem;color:#222;}
+        .my-stats{border-top:1px solid #333;padding-top:15px;text-align:center;}
+
+        /* 4. SIDEBAR */
+        #sidebar{background:var(--panel);overflow-y:auto;padding:15px;display:flex;flex-direction:column;gap:12px;}
+        .panel{border:1px solid #333;background:rgba(255,255,255,0.02);padding:10px;border-radius:4px;}
+        h2{margin:0 0 5px 0;font-size:0.75rem;border-bottom:1px solid #444;padding-bottom:4px;color:var(--primary);}
+        button{width:100%;padding:8px;cursor:pointer;background:#222;border:1px solid #555;color:#eee;font-weight:bold;margin-top:5px;display:flex;justify-content:space-between;font-size:0.7rem;} button:disabled{opacity:0.5;filter:grayscale(1);} button:hover:not(:disabled){filter:brightness(1.2);}
+        .btn-daily{background:var(--daily);color:#000;} .btn-maint{background:var(--danger);color:#000;} .btn-logic{background:var(--logic);color:#fff;} .btn-farm{background:var(--secondary);color:#fff;} .btn-prestige{background:var(--prestige);color:#fff;justify-content:center;}
+        .shop-row{display:flex;justify-content:space-between;padding:5px;border-bottom:1px solid #222;cursor:pointer;font-size:0.8rem;} .shop-row:hover{background:#222;}
 
         /* MODALS */
-        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 100; display: none; align-items: center; justify-content: center; }
-        .modal-box { background: #111; border: 2px solid var(--primary); padding: 20px; width: 90%; max-width: 500px; text-align: center; }
-
-        .simon-grid, .hack-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 20px auto; width: 180px; }
-        .cell { height: 50px; background: #222; border: 1px solid #444; cursor: pointer; }
-        .cell.lit { background: var(--secondary); box-shadow: 0 0 20px var(--secondary); border-color: #fff; }
-        .cell.on { background: var(--success); box-shadow: 0 0 10px var(--success); border-color: #fff; }
-
-        .glyph-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin: 20px 0; }
-        .glyph-cell { font-size: 1.5rem; background: #222; padding: 10px; cursor: pointer; border: 1px solid #444; }
-        .glyph-target { font-size: 2rem; color: var(--success); letter-spacing: 5px; margin-bottom: 10px; }
-
-        /* CIRCUIT LOGIQUE COMPLEXE */
-        .circuit-board { display: flex; flex-direction: column; gap: 10px; align-items: center; margin: 20px 0; }
-        .gate-row { display: flex; gap: 30px; justify-content: center; margin-bottom: 5px;}
-        .switch { width: 35px; height: 35px; border: 2px solid #555; background: #222; display: flex; align-items: center; justify-content: center; cursor: pointer; color:#fff; font-size:0.8rem;}
-        .switch.on { background: var(--logic); border-color: #fff; box-shadow: 0 0 10px var(--logic); }
-        .gate { background: #333; padding: 4px 8px; font-size: 0.7rem; border: 1px solid #666; color:#aaa; min-width:30px; }
-        .wire-v { height:15px; width:2px; background:#444; margin:0 auto; }
+        .modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.95);z-index:200;display:flex;align-items:center;justify-content:center;} .modal-box{background:#111;border:2px solid var(--primary);padding:20px;width:90%;max-width:600px;text-align:center;}
         
-        @media(max-width: 900px) { body { grid-template-rows: auto auto; } #main-layout { grid-template-columns: 1fr; } #game-stage { height: 50vh; } }
+        .logic-container { display: flex; flex-direction: column; align-items: center; gap: 10px; margin: 20px 0; }
+        .logic-row { display: flex; gap: 20px; justify-content: center; }
+        .logic-wire-v { width: 2px; height: 20px; background: #555; margin: 0 auto; }
+        .logic-switch { width: 35px; height: 35px; border: 2px solid #555; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #fff; font-weight: bold; }
+        .logic-switch.on { background: var(--logic); border-color: #fff; box-shadow: 0 0 10px var(--logic); }
+        .logic-gate { border: 1px solid #777; background: #222; padding: 5px 10px; font-size: 0.7rem; color: #aaa; min-width: 40px; }
+        
+        .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:200px;margin:20px auto;} .grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;width:220px;margin:20px auto;}
+        .cell{height:50px;background:#222;border:1px solid #444;cursor:pointer;} .cell.lit{background:var(--secondary);box-shadow:0 0 20px var(--secondary);border-color:#fff;} .cell.on{background:var(--success);box-shadow:0 0 10px var(--success);}
+        .g-cell{height:40px;background:#222;border:1px solid #444;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:1.2rem;} .g-cell:hover { background: #333; }
+
+        @media(max-width:1100px){body{grid-template-rows:auto auto;} #main-layout{grid-template-columns:1fr;} #leaderboard-panel{display:none;} #game-stage{height:50vh;}}
     </style>
 </head>
 <body>
 
-    <div id="binary-vis"></div>
+    <div id="top-bar"><div id="binary-vis"></div></div>
 
     <div id="main-layout">
+        <div id="leaderboard-panel">
+            <div class="lb-header">
+                <span class="lb-title">CLASSEMENT</span>
+                <span class="lb-count"><span id="online-count">0</span> EN LIGNE</span>
+            </div>
+            <div id="lb-list">Chargement...</div>
+        </div>
+
         <div id="game-stage">
             <div class="heat-container">
-                <div style="width:100%; display:flex; justify-content:space-between; font-size:0.7rem; color:#888;">
-                    <span>STABILITÉ (12H)</span>
-                    <button id="btn-cool-main" style="width:auto; padding:2px 10px; margin:0; background:#222; border:1px solid #555;">REFROIDIR</button>
-                </div>
-                <div class="heat-bar-bg"><div id="heat-bar-fill"></div></div>
-                <div class="overheat-msg" id="overheat-warn">⚠️ SURCHAUFFE: PROD / 2 ⚠️</div>
+                <div class="heat-top"><span>STABILITÉ (12H)</span><button onclick="window.coolSystem()" style="width:auto;padding:2px 8px;margin:0;">REFROIDIR</button></div>
+                <div class="heat-bg"><div id="heat-fill"></div></div>
+                <div id="overheat-msg" style="color:var(--danger);display:none;font-weight:bold;text-align:center;">⚠️ SURCHAUFFE ⚠️</div>
             </div>
 
-            <div style="position: absolute; top:50px; left:15px; color:#0f0; font-size:0.7rem;">
-                <span id="online-users">1</span> LIAISONS
-            </div>
-
+            <div id="tier-display">TIER 0</div>
             <div id="total-score">0</div>
-            <div class="speed-display" id="global-speed">(+ 0 / sec)</div>
+            <div id="global-cps">GLOBAL: 0/s</div>
 
             <div class="scene" id="click-zone">
-                <div class="cube" id="the-cube">
-                    <div class="cube-face f-f"></div><div class="cube-face f-b"></div><div class="cube-face f-l"></div>
-                    <div class="cube-face f-r"></div><div class="cube-face f-t"></div><div class="cube-face f-bt"></div>
+                <div id="glitch-overlay"></div> <div class="cube cube-outer" id="the-cube">
+                    <div class="face f-f"></div><div class="face f-b"></div><div class="face f-l"></div>
+                    <div class="face f-r"></div><div class="face f-t"></div><div class="face f-bt"></div>
+                </div>
+                <div class="cube-inner" id="cube-inner">
+                    <div class="face i-f"></div><div class="face i-b"></div><div class="face i-l"></div>
+                    <div class="face i-r"></div><div class="face i-t"></div><div class="face i-bt"></div>
+                </div>
+                <div class="cube-core" id="cube-core">
+                    <div class="face f-f"></div><div class="face f-b"></div><div class="face f-l"></div>
+                    <div class="face f-r"></div><div class="face f-t"></div><div class="face f-bt"></div>
                 </div>
             </div>
 
-            <div class="hud-container">
-                <div class="hud-box" style="border-color:var(--danger)"><b id="hud-maint">x1.0</b><span>MAINT</span></div>
-                <div class="hud-box" style="border-color:var(--daily)"><b id="hud-daily">^1.0</b><span>DAILY</span></div>
-                <div class="hud-box" style="border-color:var(--logic)"><b id="hud-logic">x1.0</b><span>LOGIC</span></div>
-                <div class="hud-box" style="border-color:var(--secondary)"><b id="hud-flux">+0/s</b><span>FLUX</span></div>
-                <div class="hud-box" style="border-color:var(--prestige)"><b id="hud-prestige">0</b><span>SING.</span></div>
+            <div class="hud-grid">
+                <div class="hud-item" id="h-maint"><div class="hud-val">x1.0</div><div class="hud-lbl">MAINT</div></div>
+                <div class="hud-item" id="h-daily"><div class="hud-val">x1.5</div><div class="hud-lbl">DAILY</div></div>
+                <div class="hud-item" id="h-logic"><div class="hud-val">x1.2</div><div class="hud-lbl">LOGIC</div></div>
+                <div class="hud-item" id="h-chaos"><div class="hud-val">x1.7</div><div class="hud-lbl">QUANTUM</div></div>
             </div>
+
+            <button onclick="window.startQuantum()" style="width:200px;margin-top:20px;background:var(--chaos);justify-content:center;">STABILISATEUR QUANTIQUE</button>
+            <div id="quantum-bar" style="width:200px;height:30px;background:#222;border:1px solid #555;position:relative;margin:10px auto;display:none;cursor:pointer;"><div id="q-target" style="position:absolute;width:40px;height:100%;background:rgba(0,255,0,0.3);left:50%;border-left:1px solid #0f0;border-right:1px solid #0f0;"></div><div id="q-cursor" style="position:absolute;width:4px;height:100%;background:#fff;left:0;"></div></div>
         </div>
 
         <div id="comm-panel">
             <div class="post-it">
-                <div style="border-bottom:1px dashed #333; margin-bottom:10px; font-weight:bold;">NOTE DU RÉSEAU</div>
-                <textarea id="comm-note" maxlength="500" placeholder="..."></textarea>
+                <div style="font-weight:bold;border-bottom:1px dashed #000;margin-bottom:5px;padding-bottom:2px;">NOTE DU RÉSEAU</div>
+                <textarea id="comm-note" maxlength="500"></textarea>
             </div>
-            <div class="flux-stats">
-                <div style="font-size:0.8rem; color:#888;">PRODUCTION LOCALE</div>
-                <div class="flux-val" id="local-cps">0</div>
-                <div style="font-size:0.8rem; color:#666;">clics/sec</div>
+            <div class="my-stats">
+                <div style="font-size:0.8rem;color:#888;">PRODUCTION PERSO</div>
+                <div class="flux-val" id="local-cps" style="font-size:2rem;font-weight:bold;color:var(--secondary);">0</div>
+                <div style="font-size:0.7rem;">/ sec</div>
+                <div style="margin-top:10px;font-weight:bold;">MN: <span id="mn-val" style="color:var(--primary);">0</span></div>
             </div>
         </div>
 
         <div id="sidebar">
             <div class="panel">
-                <h2>PROTOCOLES</h2>
-                <button class="btn-daily" id="btn-daily"><span>DAILY (^1.35)</span><span class="btn-status" id="st-daily">...</span></button>
-                <button class="btn-maint" id="btn-maint"><span>MAINTENANCE (x2)</span><span class="btn-status" id="st-maint">...</span></button>
-                <button class="btn-logic" id="btn-logic"><span>PORTES (x1.15)</span><span class="btn-status" id="st-logic">...</span></button>
+                <h2>PROTOCOLES GLOBAUX</h2>
+                <button onclick="window.startDaily()" id="btn-daily"><span>DAILY (x1.5)</span><span id="t-daily">...</span></button>
+                <button onclick="window.startMaint()" id="btn-maint"><span>MAINT (x2)</span><span id="t-maint">...</span></button>
+                <button onclick="window.startLogic()" id="btn-logic"><span>PORTES (x1.2)</span><span id="t-logic">...</span></button>
             </div>
-
             <div class="panel">
-                <h2 style="color:#fff">FARMING</h2>
-                <button class="btn-flux" id="btn-flux"><span>GÉNÉRATEUR FLUX</span><span class="btn-status">+1/s</span></button>
-                <button class="btn-glyph" id="btn-glyph"><span>GLYPH BREACH</span><span class="btn-status">MN $$</span></button>
-                <button class="btn-hack" id="btn-hack"><span>LIGHTS OUT</span><span class="btn-status">MN $$</span></button>
+                <h2>FARMING</h2>
+                <button onclick="window.startFlux()" class="btn-farm"><span>FLUX (SIMON)</span><span>+1/s</span></button>
+                <button onclick="window.startGlyph()" class="btn-farm"><span>GLYPH BREACH</span><span>MN++</span></button>
+                <button onclick="window.startHack()" class="btn-farm"><span>LIGHTS OUT</span><span>MN++</span></button>
             </div>
-
             <div class="panel">
-                <h2>MATIÈRE NOIRE: <span id="mn-display" style="color:#fff">0</span></h2>
-                <div class="shop-row" id="buy-bot"><div><span class="s-name">Sonde</span><div style="font-size:0.6rem; color:#888;">+1/s</div></div><span class="s-cost" id="cost-bot">50</span></div>
-                <div class="shop-row" id="buy-net"><div><span class="s-name" style="color:var(--secondary)">Réseau Neuronal</span><div style="font-size:0.6rem; color:#888;">+10/s</div></div><span class="s-cost" id="cost-net">2.5k</span></div>
-                <div style="margin-top:10px; border-top:1px solid #333; padding-top:10px;">
-                    <div style="font-size:0.6rem; color:#aaa; margin-bottom:5px">DISTORSION (5 MIN PROD)</div>
-                    <button class="btn-warp" id="btn-warp">ACTIVER (<span id="cost-warp">5000</span>)</button>
+                <h2>BOUTIQUE (MN)</h2>
+                <div class="shop-row" onclick="window.buy('bot')"><span>Sonde (1/s)</span><span id="c-bot" style="color:var(--primary)">50</span></div>
+                <div class="shop-row" onclick="window.buy('net')"><span>Réseau (10/s)</span><span id="c-net" style="color:var(--primary)">500</span></div>
+                <div style="border-top:1px solid #333;margin-top:5px;padding-top:5px;">
+                    <div style="font-size:0.6rem;color:#aaa">DISTORSION (1H)</div>
+                    <button onclick="window.buy('warp')" id="btn-warp" style="justify-content:center;background:linear-gradient(45deg,#004,#008);">ACTIVER (<span id="c-warp">5k</span>)</button>
                 </div>
             </div>
-
             <div class="panel">
                 <h2 style="color:var(--prestige)">SINGULARITÉ</h2>
-                <button class="btn-prestige" id="btn-prestige">RESET (1M MN)</button>
+                <button onclick="window.doPrestige()" style="background:var(--prestige);justify-content:center;">PRESTIGE (Tier UP)</button>
             </div>
-            
             <div class="panel">
                 <h2>SKINS</h2>
-                <div class="shop-row" id="buy-skin-matrix"><span>Matrix</span><span style="color:#0f0">10k</span></div>
-                <div class="shop-row" id="buy-skin-neon"><span>Neon</span><span style="color:#f0f">500k</span></div>
-                <div class="shop-row" id="buy-skin-gold"><span>Gold</span><span style="color:#ffd700">50k</span></div>
+                <div class="shop-row" onclick="window.buySkin('skin-matrix', 10000)"><span style="color:#0f0">Matrix</span><span>10k</span></div>
+                <div class="shop-row" onclick="window.buySkin('skin-neon', 50000)"><span style="color:#f0f">Neon</span><span>50k</span></div>
+                <div class="shop-row" onclick="window.buySkin('skin-gold', 100000)"><span style="color:#ffd700">Gold</span><span>100k</span></div>
             </div>
         </div>
     </div>
 
-    <div class="modal" id="modal-daily"><div class="modal-box"><h2 style="color:var(--daily)">ALIGNEMENT</h2><div style="background:#333; height:30px; position:relative; margin:20px 0; overflow:hidden;"><div style="position:absolute; left:45%; width:10%; height:100%; border:1px solid #0f0; background:rgba(0,255,0,0.2)"></div><div id="daily-cursor" style="position:absolute; left:0; width:4px; height:100%; background:#fff;"></div></div><button onclick="stopDaily()" style="background:#fff; color:#000">STOP</button></div></div>
-    <div class="modal" id="modal-flux"><div class="modal-box"><h2 style="color:var(--secondary)">MÉMORISEZ...</h2><div class="simon-grid" id="simon-grid"></div><div id="simon-status">Prêt ?</div></div></div>
-    <div class="modal" id="modal-glyph"><div class="modal-box"><h2>BREACH</h2><div class="glyph-target" id="glyph-target">...</div><div class="glyph-grid" id="glyph-grid"></div><div id="glyph-timer" style="color:var(--danger)">10s</div></div></div>
-    <div class="modal" id="modal-hack"><div class="modal-box"><h2>ÉTEIGNEZ TOUT</h2><div class="simon-grid" id="hack-grid"></div><button onclick="document.getElementById('modal-hack').style.display='none'">FERMER</button></div></div>
+    <div class="modal" id="modal-login" style="display:flex;">
+        <div class="modal-box">
+            <h1 style="color:var(--primary)">Speudo</h1>
+            <input type="text" id="username" placeholder="Votre Pseudo..." maxlength="12" style="background:#333;color:#fff;border:1px solid #555;padding:10px;text-align:center;width:80%;">
+            <button onclick="window.performLogin()" style="background:var(--primary);color:#000;margin-top:20px;justify-content:center;">ENTRER</button>
+        </div>
+    </div>
 
-    <div class="modal" id="modal-logic"><div class="modal-box"><h2 style="color:var(--logic)">CIRCUIT COMPLEXE</h2><p style="font-size:0.8rem">4 Entrées -> 2 Portes -> Sortie Finale</p><div id="circuit-board" class="circuit-board"></div><button onclick="document.getElementById('modal-logic').style.display='none'">FERMER</button></div></div>
+    <div class="modal" id="modal-simon" style="display:none"><div class="modal-box"><h2 style="color:var(--secondary)">MÉMOIRE</h2><div class="grid-3" id="simon-grid"></div><div id="simon-msg">...</div></div></div>
+    
+    <div class="modal" id="modal-glyph" style="display:none">
+        <div class="modal-box">
+            <h2>BREACH</h2>
+            <div id="glyph-tgt" style="font-size:2rem;color:var(--success);margin:10px;">...</div>
+            <div class="grid-4" id="glyph-grid"></div>
+        </div>
+    </div>
 
-<script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getDatabase, ref, onValue, runTransaction, serverTimestamp, set, onDisconnect } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+    <div class="modal" id="modal-hack" style="display:none"><div class="modal-box"><h2>ÉTEIGNEZ TOUT</h2><div class="grid-3" id="hack-grid"></div><button onclick="document.getElementById('modal-hack').style.display='none'">FERMER</button></div></div>
+    <div class="modal" id="modal-daily" style="display:none"><div class="modal-box"><h2 style="color:var(--daily)">ALIGNEMENT</h2><div style="background:#333;height:40px;position:relative;margin:20px 0;overflow:hidden;"><div style="position:absolute;left:45%;width:10%;height:100%;border:1px solid #0f0;background:rgba(0,255,0,0.2)"></div><div id="daily-cur" style="position:absolute;left:0;width:6px;height:100%;background:#fff;"></div></div><button onclick="window.stopDaily()" style="background:#fff;color:#000">STOP</button></div></div>
 
-    const firebaseConfig = {
+    <div class="modal" id="modal-logic" style="display:none">
+        <div class="modal-box">
+            <h2 style="color:var(--logic)">CIRCUIT LOGIQUE</h2>
+            <p style="font-size:0.8rem">4 Entrées &rarr; 2 Portes &rarr; Finale</p>
+            <div class="logic-container" id="circuit-board"></div>
+            <button onclick="document.getElementById('modal-logic').style.display='none'">FERMER</button>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
         apiKey: "AIzaSyB0lwTP0tdgFtmliFk5RLPJyHxXaNvXbxA",
         authDomain: "lechatderemi.firebaseapp.com",
         databaseURL: "https://lechatderemi-default-rtdb.europe-west1.firebasedatabase.app",
@@ -257,260 +245,423 @@
         storageBucket: "lechatderemi.firebasestorage.app",
         messagingSenderId: "703344968670",
         appId: "1:703344968670:web:cc6c409376db0298df134f"
-    };
+        };
 
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
-    const DB_ROOT = 'ipsa_v11'; // IPSACLICKER VERSION
+        let db;
+        try {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.database();
+        } catch(e) { alert("Erreur Firebase: " + e.message); }
 
-    let p = {
-        mn: 0, bots: 0, nets: 0,
-        maintEnd: 0, dailyEnd: 0, lastDailyWin: 0, logicEnd: 0,
-        fluxSess: 0, skin: '', prestige: 0,
-        lastCoolDown: Date.now()
-    };
+        const ROOT = 'ipsa_v23';
 
-    const saved = localStorage.getItem(DB_ROOT);
-    if(saved) { p = { ...p, ...JSON.parse(saved), fluxSess:0 }; }
-    applySkin(p.skin);
-
-    const scoreRef = ref(db, `${DB_ROOT}/score`);
-    const noteRef = ref(db, `${DB_ROOT}/note`);
-    const presRef = ref(db, `${DB_ROOT}/presence`);
-    const myPres = ref(db, `${DB_ROOT}/presence/${Date.now()}`);
-
-    function fmt(n) {
-        if(n<1000) return Math.floor(n);
-        const s=["","k","M","B","T","Qa"];
-        const i=Math.floor((""+Math.floor(n)).length/3);
-        return parseFloat((n/Math.pow(1000,i)).toPrecision(3))+s[i]||"Inf";
-    }
-
-    const binGrid = document.getElementById('binary-vis');
-    for(let i=0; i<40; i++) { const d=document.createElement('div'); d.className='bit'; binGrid.appendChild(d); }
-    function updateBinary(n) {
-        const bin = Math.floor(n).toString(2).split('').reverse();
-        const bits = binGrid.children;
-        for(let i=0; i<bits.length; i++) {
-            if(i < bin.length && bin[i] === '1') bits[i].classList.add('on');
-            else bits[i].classList.remove('on');
-        }
-    }
-
-    let globalScore=0, lastScore=0, lastTime=Date.now(), clickBuff=0, currentCps=0, isOverheat=false;
-
-    onValue(scoreRef, s => {
-        globalScore = s.val() || 0;
-        document.getElementById('total-score').innerText = fmt(globalScore);
-        if(Math.random()>0.5) updateBinary(globalScore);
-        const now = Date.now();
-        if(now - lastTime > 1000) {
-            const spd = Math.max(0, Math.floor((globalScore - lastScore) / ((now-lastTime)/1000)));
-            document.getElementById('global-speed').innerText = `(+ ${fmt(spd)} / sec)`;
-            lastScore = globalScore; lastTime = now;
-        }
-    });
-    onValue(noteRef, s => { if(document.activeElement.id !== 'comm-note') document.getElementById('comm-note').value = s.val() || ""; });
-    document.getElementById('comm-note').addEventListener('change', e => set(noteRef, e.target.value));
-    onValue(ref(db, ".info/connected"), s => { if(s.val()) { onDisconnect(myPres).remove(); set(myPres, true); }});
-    onValue(presRef, s => document.getElementById('online-users').innerText = s.numChildren());
-
-    setInterval(() => {
-        const now = Date.now();
+        let p = { name:"", mn:0, bots:0, nets:0, fluxSess:0, skin:'', quantumEnd:0 };
+        const saved = localStorage.getItem(ROOT);
+        if(saved) { const l=JSON.parse(saved); p={...p, ...l, fluxSess:0, quantumEnd:0}; }
         
-        // Instabilité 12H
-        const TWELVE_HOURS = 12 * 60 * 60 * 1000;
-        let heatPct = Math.min(100, ((now - p.lastCoolDown) / TWELVE_HOURS) * 100);
-        document.getElementById('heat-bar-fill').style.width = heatPct + "%";
-        if(heatPct >= 100) { isOverheat = true; document.getElementById('overheat-warn').style.display = 'block'; } 
-        else { isOverheat = false; document.getElementById('overheat-warn').style.display = 'none'; }
+        let G = { score:0, tier:0, heatStart:Date.now(), buffs:{daily:0,maint:0,logic:0} };
 
-        // Multiplicateurs
-        let mM = (p.maintEnd > now) ? 2.0 : 1.0;
-        let pD = (p.dailyEnd > now) ? 1.35 : 1.0;
-        let pL = (p.logicEnd > now) ? 1.15 : 1.0;
-        let mP = 1 + (p.prestige * 0.20);
-
-        // Update Buttons Timers
-        updateBtn('btn-daily', 'st-daily', p.dailyEnd, "08:00");
-        updateBtn('btn-maint', 'st-maint', p.maintEnd, "PRET");
-        updateBtn('btn-logic', 'st-logic', p.logicEnd, "PRET");
-
-        // HUD
-        ui('hud-maint', mM>1, "x2.0", "x1.0", "var(--success)", "var(--danger)");
-        ui('hud-daily', pD>1, "^1.35", "^1.0", "var(--daily)", "#666");
-        ui('hud-logic', pL>1, "x1.15", "x1.0", "var(--logic)", "#666");
-        document.getElementById('hud-flux').innerText = "+"+p.fluxSess+"/s";
-        document.getElementById('hud-prestige').innerText = p.prestige;
-        document.getElementById('mn-display').innerText = fmt(p.mn);
-
-        updateShop();
-        checkDaily();
-
-        // Prod
-        let base = (p.bots * 1) + (p.nets * 10) + p.fluxSess;
-        if(base > 0) {
-            let total = Math.pow(base * mM * pL * mP, pD);
-            if(isOverheat) total *= 0.5;
-            currentCps = total;
-            document.getElementById('local-cps').innerText = fmt(total);
-            clickBuff += total / 30;
-            if(clickBuff >= 1) { const send = Math.floor(clickBuff); clickBuff -= send; p.mn += send; runTransaction(scoreRef, s => (s||0)+send); }
-        } else { currentCps = 0; document.getElementById('local-cps').innerText = "0"; }
-
-    }, 33);
-    setInterval(() => localStorage.setItem(DB_ROOT, JSON.stringify(p)), 2000);
-
-    function ui(id, c, tY, tN, cY, cN) { const el=document.getElementById(id); el.innerText=c?tY:tN; el.style.color=c?cY:cN; }
-    function updateBtn(btnId, spanId, endTime, readyText) {
-        const btn = document.getElementById(btnId);
-        const span = document.getElementById(spanId);
-        if(endTime > Date.now()) {
-            btn.disabled = true;
-            const min = Math.ceil((endTime - Date.now())/60000);
-            span.innerText = "ACTIF (" + min + " min)"; // Fix M to min
-            span.style.color = "#fff";
-        } else {
-            if(btnId !== 'btn-daily') btn.disabled = false;
-            span.innerText = readyText; span.style.color = "#ccc";
+        // LOGIN
+        window.performLogin = function() {
+            const val = document.getElementById('username').value.trim().substring(0,12);
+            if(val) {
+                p.name = val;
+                localStorage.setItem(ROOT, JSON.stringify(p));
+                document.getElementById('modal-login').style.display='none';
+                initUser();
+            } else alert("Pseudo ?");
+        };
+        
+        if(p.name) {
+            document.getElementById('modal-login').style.display='none';
+            if(db) initUser();
         }
-    }
 
-    document.getElementById('btn-cool-main').onclick = () => { p.lastCoolDown = Date.now(); };
-
-    // --- DAILY ---
-    let dAnim, dPos=0, dDir=1;
-    function checkDaily() {
-        let r=new Date().setHours(8,0,0,0); if(new Date().getHours()<8)r-=86400000;
-        const b=document.getElementById('btn-daily'), s=document.getElementById('st-daily');
-        if(p.dailyEnd > Date.now()) return;
-        if(p.lastDailyWin < r) { b.disabled=false; s.innerText="PRET"; } else { b.disabled=true; s.innerText="TERMINE"; }
-    }
-    document.getElementById('btn-daily').onclick = () => { document.getElementById('modal-daily').style.display='flex'; dPos=0; dDir=1; function l(){dPos+=1.5*dDir; if(dPos>100||dPos<0)dDir*=-1; document.getElementById('daily-cursor').style.left=dPos+"%"; dAnim=requestAnimationFrame(l);} l(); };
-    window.stopDaily = () => { cancelAnimationFrame(dAnim); document.getElementById('modal-daily').style.display='none'; if(dPos>=45&&dPos<=55){alert("SUCCES"); p.dailyEnd=Date.now()+3600000; p.lastDailyWin=Date.now();} else alert("RATE"); };
-
-    // --- MAINT ---
-    document.getElementById('btn-maint').onclick = () => {
-        if(p.maintEnd>Date.now())return;
-        const a=Math.floor(Math.random()*50)+10, b=Math.floor(Math.random()*40)+1;
-        if(parseInt(prompt(`${a}+${b}?`))===a+b){p.maintEnd=Date.now()+7200000; alert("OK");}
-    };
-
-    // --- FLUX ---
-    document.getElementById('btn-flux').onclick = () => { document.getElementById('modal-flux').style.display='flex'; initSimon(); };
-    function initSimon() {
-        const g=document.getElementById('simon-grid'); g.innerHTML='';
-        for(let i=0; i<9; i++){const d=document.createElement('div'); d.className='cell'; d.dataset.id=i; g.appendChild(d);}
-        const s=[0,1,2,3,4,5,6,7,8].sort(()=>Math.random()-0.5).slice(0,3);
-        let idx=0, click=false, k=0;
-        const int=setInterval(()=>{
-            if(k>=3){clearInterval(int); document.getElementById('simon-status').innerText="GO"; click=true; return;}
-            const c=g.children[s[k]]; c.classList.add('lit'); setTimeout(()=>c.classList.remove('lit'), 300); k++;
-        }, 600);
-        Array.from(g.children).forEach(c=>{c.onclick=()=>{
-            if(!click)return; c.classList.add('lit'); setTimeout(()=>c.classList.remove('lit'),100);
-            if(parseInt(c.dataset.id)===s[idx]){idx++; if(idx>=3){p.fluxSess++; document.getElementById('modal-flux').style.display='none';}}
-            else{document.getElementById('modal-flux').style.display='none'; alert("Rate");}
-        }});
-    }
-
-    // --- COMPLEX LOGIC GATE ---
-    document.getElementById('btn-logic').onclick = () => { if(p.logicEnd>Date.now())return; document.getElementById('modal-logic').style.display='flex'; initGate(); };
-    function initGate() {
-        const b=document.getElementById('circuit-board'); b.innerHTML='';
-        let inputs=[0,0,0,0]; // 4 inputs
-        const gT=[0,0,0].map(()=>Math.floor(Math.random()*3)); // 3 gates (A, B, Final)
-
-        function r(){
-            b.innerHTML='';
-            // Row 1: 4 Inputs
-            const r1=document.createElement('div'); r1.className='gate-row';
-            inputs.forEach((v,i)=>{const s=document.createElement('div'); s.className='switch '+(v?'on':''); s.innerText=v; s.onclick=()=>{inputs[i]=1-inputs[i];r();}; r1.appendChild(s);});
-            b.appendChild(r1);
-            
-            // Wires visual
-            const w1=document.createElement('div'); w1.innerHTML='<div style="font-size:0.5rem;color:#555">▼  ▼  ▼  ▼</div>'; b.appendChild(w1);
-
-            // Row 2: Gates A & B
-            const r2=document.createElement('div'); r2.className='gate-row';
-            r2.innerHTML=`<div class="gate">${gN(gT[0])}</div><div class="gate">${gN(gT[1])}</div>`; b.appendChild(r2);
-
-            // Row 3: Final Gate
-            const r3=document.createElement('div'); r3.className='gate-row';
-            r3.innerHTML=`<div class="gate">${gN(gT[2])}</div>`; b.appendChild(r3);
-            
-            // Logic Eval
-            // Gate A takes Input 0 & 1
-            const resA = eV(gT[0], inputs[0], inputs[1]);
-            // Gate B takes Input 2 & 3
-            const resB = eV(gT[1], inputs[2], inputs[3]);
-            // Final takes A & B
-            const fin = eV(gT[2], resA, resB);
-
-            // Output
-            const bulb=document.createElement('div'); bulb.className='switch '+(fin?'on':''); bulb.style.borderRadius="50%"; b.appendChild(bulb);
-            
-            if(fin){setTimeout(()=>{document.getElementById('modal-logic').style.display='none'; p.logicEnd=Date.now()+3600000; alert("OK");},300);}
+        function initUser() {
+            if(p.skin) setTimeout(()=>applySkin(p.skin), 200);
+            db.ref(".info/connected").on("value", s=>{
+                if(s.val()) {
+                    const c = db.ref(`${ROOT}/pres/${p.name}`);
+                    c.onDisconnect().remove();
+                    c.set(true);
+                }
+            });
+            db.ref(`${ROOT}/users/${p.name}`).transaction(u => u || {score:0});
         }
-        r();
-    }
-    function gN(t){return['AND','OR','XOR'][t]} function eV(t,a,b){if(t==0)return(a&&b)?1:0;if(t==1)return(a||b)?1:0;return(a!=b)?1:0;}
 
-    // --- GLYPH ---
-    const glyphs=['Ω','Σ','Π','Δ','Ψ','Φ','Γ','Λ','Ξ','Θ']; let gSeq=[], gIdx=0, gTimer;
-    document.getElementById('btn-glyph').onclick=()=>{document.getElementById('modal-glyph').style.display='flex'; initGlyph();};
-    function initGlyph(){
-        const g=document.getElementById('glyph-grid'); g.innerHTML='';
-        const board=[...glyphs].sort(()=>Math.random()-0.5).slice(0,16);
-        board.forEach(c=>{const d=document.createElement('div'); d.className='glyph-cell'; d.innerText=c; d.onclick=()=>checkG(c,d); g.appendChild(d);});
-        gSeq=board.slice(0,3).sort(()=>Math.random()-0.5); gIdx=0;
-        document.getElementById('glyph-target').innerText=gSeq.join(' ');
-        let t=10.0; clearInterval(gTimer);
-        gTimer=setInterval(()=>{t-=0.1; document.getElementById('glyph-timer').innerText=t.toFixed(1); if(t<=0){clearInterval(gTimer);document.getElementById('modal-glyph').style.display='none';}},100);
-    }
-    function checkG(c,d){
-        if(c===gSeq[gIdx]){d.style.background="#0f0"; gIdx++; if(gIdx>=3){clearInterval(gTimer); document.getElementById('modal-glyph').style.display='none'; p.mn+=Math.max(100, Math.floor(currentCps*300)); alert("MN ++");}}
-        else d.style.background="#f00";
-    }
+        // LISTENERS
+        if(db) {
+            db.ref(`${ROOT}/game/score`).on('value', s=>G.score=s.val()||0);
+            db.ref(`${ROOT}/game/tier`).on('value', s=>{G.tier=s.val()||0; updateVisuals();});
+            db.ref(`${ROOT}/game/heatStart`).on('value', s=>G.heatStart=s.val()||Date.now());
+            db.ref(`${ROOT}/game/buffs`).on('value', s=>G.buffs=s.val()||{});
+            db.ref(`${ROOT}/pres`).on('value', s=>document.getElementById('online-count').innerText = s.numChildren());
+            db.ref(`${ROOT}/note`).on('value', s=>{
+                if(document.activeElement.id!=='comm-note') document.getElementById('comm-note').value = s.val()||"";
+            });
 
-    // --- HACK ---
-    document.getElementById('btn-hack').onclick=()=>{document.getElementById('modal-hack').style.display='flex'; initHack();};
-    function initHack(){
-        const g=document.getElementById('hack-grid'); g.innerHTML=''; let s=[0,0,0,0,0,0,0,0,0];
-        const tog=(i)=>{s[i]=!s[i]; if(i%3>0)s[i-1]=!s[i-1]; if(i%3<2)s[i+1]=!s[i+1]; if(i>=3)s[i-3]=!s[i-3]; if(i<6)s[i+3]=!s[i+3]; ren(); if(s.every(x=>!x)){p.mn+=2000; alert("+2k MN"); document.getElementById('modal-hack').style.display='none';}};
-        const ren=()=>{Array.from(g.children).forEach((c,i)=>c.className='cell '+(s[i]?'on':''));};
-        s.forEach((_,i)=>{const d=document.createElement('div'); d.className='cell'; d.onclick=()=>tog(i); g.appendChild(d);});
-        for(let k=0;k<10;k++)tog(Math.floor(Math.random()*9));
-    }
+            db.ref(`${ROOT}/users`).on('value', s=>{
+                const arr=[]; s.forEach(c=>arr.push({n:c.key, s:c.val().score||0}));
+                arr.sort((a,b)=>b.s-a.s);
+                const d=document.getElementById('lb-list'); d.innerHTML='';
+                arr.slice(0,10).forEach((u,i)=>{
+                    d.innerHTML += `
+                    <div class="lb-row ${u.n===p.name?'me':''}">
+                        <span class="lb-rank">#${i+1}</span>
+                        <span>${u.n}</span>
+                        <span class="lb-val">${fmt(u.s)}</span>
+                    </div>`;
+                });
+            });
+        }
+        document.getElementById('comm-note').addEventListener('change', e=>db.ref(`${ROOT}/note`).set(e.target.value));
 
-    // --- SHOP ---
-    function updateShop() {
-        const cBot = Math.floor(50 * Math.pow(1.15, p.bots)); document.getElementById('cost-bot').innerText=fmt(cBot);
-        bindBtn('buy-bot', cBot, ()=>{p.mn-=cBot; p.bots++;});
-        const cNet = Math.floor(2500 * Math.pow(1.15, p.nets)); document.getElementById('cost-net').innerText=fmt(cNet);
-        bindBtn('buy-net', cNet, ()=>{p.mn-=cNet; p.nets++;});
-        let wCost = Math.max(5000, Math.floor(currentCps*300)); document.getElementById('cost-warp').innerText=fmt(wCost);
-        bindBtn('btn-warp', wCost, ()=>{if(confirm("Warp?")){p.mn-=wCost; runTransaction(scoreRef, s=>(s||0)+(currentCps*300)); alert("Warped");}});
-        document.getElementById('btn-prestige').onclick=()=>{if(p.mn>=1000000 && confirm("RESET?")){p.mn=0; p.bots=0; p.nets=0; p.fluxSess=0; p.prestige++; alert("GG");}};
-        bindSkin('buy-skin-matrix','skin-matrix',10000); bindSkin('buy-skin-neon','skin-neon',500000); bindSkin('buy-skin-gold','skin-gold',50000);
-    }
-    function bindBtn(id, cost, act) { const el=document.getElementById(id); if(p.mn>=cost){el.classList.remove('disabled'); el.onclick=act;}else{el.classList.add('disabled'); el.onclick=null;} }
-    function bindSkin(id,s,c){bindBtn(id,c,()=>{if(confirm("Buy?")){p.mn-=c;p.skin=s;applySkin(s);}});}
-    function applySkin(s){document.getElementById('the-cube').className="cube "+s;}
+        // LOOP
+        const binVis = document.getElementById('binary-vis');
+        for(let i=0;i<40;i++){let b=document.createElement('div'); b.className='bit'; binVis.appendChild(b);}
+        
+        let lastTime=Date.now(), lastGlobal=0, cpsBuff=0;
 
-    // --- CLICK ---
-    document.getElementById('click-zone').addEventListener('pointerdown', (e) => {
-        let mM = (p.maintEnd > Date.now()) ? 2.0 : 1.0; let pD = (p.dailyEnd > Date.now()) ? 1.35 : 1.0;
-        let pL = (p.logicEnd > Date.now()) ? 1.15 : 1.0; let mP = 1 + (p.prestige * 0.20);
-        let val = Math.max(1, Math.floor(Math.pow(1 * mM * pL * mP, pD)));
-        if(isOverheat) val = Math.floor(val/2);
-        p.mn += val; runTransaction(scoreRef, s => (s||0)+val);
-        const d=document.createElement('div'); d.innerText="+"+fmt(val); d.style.cssText=`position:fixed; left:${e.clientX}px; top:${e.clientY}px; color:#fff; pointer-events:none; animation:float 1s forwards; font-weight:bold; z-index:99`;
-        document.body.appendChild(d); setTimeout(()=>d.remove(),1000);
-        const c=document.getElementById('the-cube'); c.style.transform="translateZ(-115px)"; setTimeout(()=>c.style.transform="",100);
-    });
-    const st=document.createElement('style'); st.innerHTML="@keyframes float { to { transform:translateY(-50px); opacity:0 }}"; document.head.appendChild(st);
+        setInterval(()=>{
+            if(!db) return;
+            const now = Date.now();
+            
+            const bD = G.buffs.daily>now ? 1.5 : 1.0;
+            const bM = G.buffs.maint>now ? 2.0 : 1.0;
+            const bL = G.buffs.logic>now ? 1.2 : 1.0;
+            const bQ = p.quantumEnd>now ? 1.7 : 1.0;
+            const bT = Math.pow(5, G.tier);
 
-</script>
+            const hrs = (now-G.heatStart)/3600000;
+            const pct = Math.min(100, (hrs/12)*100);
+            document.getElementById('heat-fill').style.width = pct+"%";
+            const penalty = pct>=100 ? 0.5 : 1.0;
+            document.getElementById('overheat-msg').style.display = pct>=100?'block':'none';
+
+            updateHud('h-daily', bD>1); updateHud('h-maint', bM>1);
+            updateHud('h-logic', bL>1); updateHud('h-chaos', bQ>1);
+            
+            updateBtn('btn-daily', 't-daily', G.buffs.daily);
+            updateBtn('btn-maint', 't-maint', G.buffs.maint);
+            updateBtn('btn-logic', 't-logic', G.buffs.logic);
+
+            document.getElementById('total-score').innerText = fmt(G.score);
+            document.getElementById('tier-display').innerText = `TIER ${G.tier} (x${fmt(bT)})`;
+            document.getElementById('mn-val').innerText = fmt(p.mn);
+
+            // Binary Vis
+            if(Math.random()>0.8) {
+                const bin=Math.floor(G.score).toString(2).split('').reverse();
+                Array.from(binVis.children).forEach((b,i)=>{
+                    if(i<bin.length && bin[i]==='1') b.classList.add('on'); else b.classList.remove('on');
+                });
+            }
+
+            // --- FX HEARTBEAT & GLITCH ---
+            if(G.score > 0) {
+                // Pulse
+                let intensity = Math.min(0.2, Math.log10(G.score + 1) / 50); 
+                let beat = 1 + Math.sin(Date.now() / 200) * intensity;
+                // Preserve rotateZ from glitch if needed, but here simple scale
+                document.getElementById('click-zone').style.transform = `scale(${beat})`;
+
+                // Glitch Threshold (Starts visible at 1k, strong at 1M)
+                let glitchDiv = document.getElementById('glitch-overlay');
+                let cube = document.getElementById('click-zone');
+                
+                if(G.score > 1000) {
+                    let glitchIntensity = Math.min(1, Math.log10(G.score) / 9); // 0 to 1
+                    glitchDiv.style.opacity = glitchIntensity * 0.5; // Max 0.5 opacity for bands
+                    
+                    if(Math.random() < (glitchIntensity * 0.1)) { // Random glitches
+                        cube.classList.add('glitch-active');
+                        setTimeout(() => cube.classList.remove('glitch-active'), 100);
+                    }
+                } else {
+                    glitchDiv.style.opacity = 0;
+                }
+            }
+
+            if(now-lastTime>2000) {
+                const spd = Math.max(0, (G.score - lastGlobal)/2);
+                document.getElementById('global-cps').innerText = `GLOBAL: ${fmt(spd)} / s`;
+                lastGlobal = G.score; lastTime = now;
+            }
+
+            const prod = calcProd() * bD * bM * bL * bQ * bT * penalty;
+            document.getElementById('local-cps').innerText = fmt(prod);
+            updateShop(prod);
+
+            if(prod>0) {
+                cpsBuff += prod/30;
+                if(cpsBuff>=1){ const s=Math.floor(cpsBuff); cpsBuff-=s; p.mn+=s; sendScore(s); }
+            }
+        }, 33);
+
+        setInterval(()=>localStorage.setItem(ROOT, JSON.stringify(p)), 2000);
+
+        function fmt(n) {
+            if(n>=1e21) return "MAX"; if(n<1000) return Math.floor(n);
+            const i=Math.floor(Math.log10(n)/3);
+            return (n/Math.pow(1000,i)).toFixed(2) + ["","k","M","B","T","Qa"][i];
+        }
+        function calcProd() { return (p.bots*1)+(p.nets*10)+p.fluxSess; }
+        function sendScore(amt) {
+            db.ref(`${ROOT}/game/score`).transaction(s=>(s||0)+amt);
+            if(p.name) db.ref(`${ROOT}/users/${p.name}/score`).transaction(s=>(s||0)+amt);
+        }
+        function updateHud(id,on){document.getElementById(id).className=on?'hud-item active-buff':'hud-item';}
+        function updateBtn(bid,tid,end){
+            const b=document.getElementById(bid), t=document.getElementById(tid);
+            if(end>Date.now()){b.disabled=true; t.innerText=Math.ceil((end-Date.now())/60000)+"m";}
+            else{b.disabled=false; t.innerText="PRET";}
+        }
+        function updateVisuals(){
+            document.getElementById('cube-inner').style.display = G.tier>=1?'block':'none';
+            document.getElementById('cube-core').style.display = G.tier>=2?'block':'none';
+        }
+
+        window.coolSystem = () => db.ref(`${ROOT}/game/heatStart`).set(Date.now());
+        window.doPrestige = () => {
+            const req = 1000000 * Math.pow(100, G.tier);
+            if(G.score >= req) {
+                if(confirm("RESET GLOBAL ?")) { db.ref(`${ROOT}/game/score`).set(0); db.ref(`${ROOT}/game/tier`).set(G.tier+1); }
+            } else alert("Requis: "+fmt(req));
+        };
+        window.buy = (t) => {
+            if(t==='bot'){const c=Math.floor(50*Math.pow(1.4,p.bots)); if(p.mn>=c){p.mn-=c; p.bots++;}}
+            if(t==='net'){const c=Math.floor(500*Math.pow(1.4,p.nets)); if(p.mn>=c){p.mn-=c; p.nets++;}}
+            if(t==='warp'){const c=5000; if(p.mn>=c){if(confirm("Warp?")){p.mn-=c; sendScore(calcProd()*3600);}}}
+        };
+        window.buySkin = (s,c) => { if(p.mn>=c){if(confirm("Skin?")){p.mn-=c; p.skin=s; applySkin(s);}}else alert("Pas assez"); };
+        function applySkin(s){ const el=document.getElementById('the-cube'); if(el) el.className="cube cube-outer "+s; }
+        function updateShop(prod) {
+            document.getElementById('c-bot').innerText=fmt(Math.floor(50*Math.pow(1.4,p.bots)));
+            document.getElementById('c-net').innerText=fmt(Math.floor(500*Math.pow(1.4,p.nets)));
+            document.getElementById('c-warp').innerText=fmt(Math.max(5000, Math.floor(prod*3600)));
+        }
+
+        document.getElementById('click-zone').addEventListener('pointerdown', (e)=>{
+            const bD=G.buffs.daily>Date.now()?1.5:1; const bM=G.buffs.maint>Date.now()?2:1;
+            const bL=G.buffs.logic>Date.now()?1.2:1; const bQ=p.quantumEnd>Date.now()?1.7:1;
+            const bT=Math.pow(5, G.tier);
+            const hrs=(Date.now()-G.heatStart)/3600000;
+            let val=Math.max(1, Math.floor(1*bD*bM*bL*bQ*bT));
+            if(hrs>=12) val=Math.floor(val/2);
+            p.mn+=val; sendScore(val);
+            const d=document.createElement('div'); d.innerText="+"+fmt(val);
+            d.style.cssText=`position:fixed;left:${e.clientX}px;top:${e.clientY}px;color:#fff;font-weight:bold;animation: float 1s forwards; pointer-events:none;`;
+            document.body.appendChild(d); setTimeout(()=>d.remove(),1000);
+        });
+        const st=document.createElement('style'); st.innerHTML="@keyframes float{to{transform:translateY(-50px);opacity:0}}"; document.head.appendChild(st);
+
+        // --- QUANTUM (CORRIGÉ) ---
+        let qAnim, qPos=0, qDir=1.5, qActive=false, qTarget=50;
+
+        window.startQuantum = () => {
+            if(p.quantumEnd > Date.now()) return;
+            
+            document.getElementById('quantum-bar').style.display='block';
+            qActive = true; 
+            qPos = 0;
+            
+            // 1. Définir une cible aléatoire (entre 20% et 80%)
+            qTarget = 20 + Math.random() * 60;
+            
+            // 2. Mettre à jour le visuel
+            const bar = document.getElementById('q-target');
+            bar.style.left = qTarget + "%";
+            // Important : on centre la barre sur son point exact
+            bar.style.transform = "translateX(-50%)"; 
+            
+            loopQ();
+        };
+
+        function loopQ(){
+            if(!qActive) return;
+            qPos += qDir;
+            // Rebondir sur les bords
+            if(qPos > 100 || qPos < 0) qDir *= -1;
+            document.getElementById('q-cursor').style.left = qPos + "%";
+            qAnim = requestAnimationFrame(loopQ);
+        }
+
+        document.getElementById('quantum-bar').onclick = () => {
+            qActive = false; 
+            cancelAnimationFrame(qAnim); 
+            document.getElementById('quantum-bar').style.display='none';
+            
+            // 3. Vérifier la distance entre le curseur et la cible (+/- 5%)
+            if(Math.abs(qPos - qTarget) < 5) {
+                p.quantumEnd = Date.now() + 60000; 
+                alert("STABILISATION RÉUSSIE !"); 
+            } else { 
+                alert("ÉCHEC DE LA SYNCHRONISATION"); 
+            }
+        };
+
+        // FLUX
+        window.startFlux = () => { 
+            document.getElementById('modal-simon').style.display = 'flex'; 
+            playSimon(); 
+        };
+
+        function playSimon() {
+            const g = document.getElementById('simon-grid'); 
+            g.innerHTML = '';
+            // Création de la grille
+            for (let i = 0; i < 9; i++) {
+                const d = document.createElement('div'); 
+                d.className = 'cell'; 
+                d.dataset.id = i; 
+                g.appendChild(d);
+            }
+
+            // Séquence aléatoire
+            const s = [0, 1, 2, 3, 4, 5, 6, 7, 8].sort(() => Math.random() - 0.5).slice(0, 3);
+            let k = 0, canClick = false, idx = 0;
+
+            // Animation de la séquence
+            const int = setInterval(() => {
+                if (k >= 3) {
+                    clearInterval(int); 
+                    document.getElementById('simon-msg').innerText = "GO"; 
+                    canClick = true; 
+                    return;
+                }
+                const c = g.children[s[k]]; 
+                c.classList.add('lit'); 
+                setTimeout(() => c.classList.remove('lit'), 300); 
+                k++;
+            }, 600);
+
+            // Gestion des clics joueur
+            Array.from(g.children).forEach(c => c.onclick = () => {
+                if (!canClick) return;
+                
+                c.classList.add('lit'); 
+                setTimeout(() => c.classList.remove('lit'), 100);
+
+                if (parseInt(c.dataset.id) === s[idx]) {
+                    idx++; 
+                    if (idx >= 3) {
+                        let bonus = 1 + Math.floor(p.mn / 100);
+                        p.fluxSess += bonus;
+                        
+                        document.getElementById('modal-simon').style.display = 'none';
+                        alert("Succès ! +" + bonus + "/s ajouté au flux.");
+                    }
+                } else {
+                    document.getElementById('modal-simon').style.display = 'none'; 
+                    alert("Raté !");
+                }
+            });
+        }
+
+        // DAILY
+        let dAnim, dPos=0, dDir=1;
+        window.startDaily=()=>{if(G.buffs.daily>Date.now())return; document.getElementById('modal-daily').style.display='flex'; loopD();};
+        function loopD(){dPos+=1.2*dDir; if(dPos>100||dPos<0)dDir*=-1; document.getElementById('daily-cur').style.left=dPos+"%"; dAnim=requestAnimationFrame(loopD);}
+        window.stopDaily=()=>{ cancelAnimationFrame(dAnim); document.getElementById('modal-daily').style.display='none'; if(dPos>=45&&dPos<=55) db.ref(`${ROOT}/game/buffs/daily`).set(Date.now()+3600000); else alert("RATE"); };
+
+        // MAINT
+        window.startMaint=()=>{if(G.buffs.maint>Date.now())return; const a=Math.floor(Math.random()*50), b=Math.floor(Math.random()*50); if(parseInt(prompt(`${a}+${b}?`))===a+b) db.ref(`${ROOT}/game/buffs/maint`).set(Date.now()+7200000);};
+
+        // GLYPH (RESTORED VERSION)
+        const chars = ['Ω','Σ','Π','Δ','Ψ','Φ','Γ','Λ','Ξ','Θ'];
+        let gSeq = [], gIdx = 0;
+
+        window.startGlyph = () => {
+            document.getElementById('modal-glyph').style.display = 'flex';
+            playGlyph();
+        };
+
+        function playGlyph() {
+            const g = document.getElementById('glyph-grid');
+            g.innerHTML = '';
+            const targetDiv = document.getElementById('glyph-tgt');
+
+            const board = [];
+            for(let i=0; i<16; i++) {
+                board.push(chars[Math.floor(Math.random() * chars.length)]);
+            }
+
+            board.forEach((char, index) => {
+                const d = document.createElement('div');
+                d.className = 'g-cell';
+                d.innerText = char;
+                d.onclick = () => checkGlyphClick(char, d);
+                g.appendChild(d);
+            });
+
+            // Pick 3 from board
+            gSeq = [
+                board[Math.floor(Math.random()*16)],
+                board[Math.floor(Math.random()*16)],
+                board[Math.floor(Math.random()*16)]
+            ];
+
+            gIdx = 0;
+            targetDiv.innerText = gSeq.join(' ');
+        }
+
+        function checkGlyphClick(char, div) {
+            if(char === gSeq[gIdx]) {
+                div.style.background = "#0f0";
+                gIdx++;
+                if(gIdx >= gSeq.length) {
+                    setTimeout(() => {
+                        document.getElementById('modal-glyph').style.display = 'none';
+                        addmnglyph = Math.floor(calcProd() * 1200) + 1000;
+                        p.mn += addmnglyph;
+                        alert("BREACH REUSSI : MN++ " + addmnglyph);
+                    }, 200);
+                }
+            } else {
+                div.style.background = "#f00";
+                setTimeout(()=>div.style.background="#222", 200);
+            }
+        }
+
+        // HACK
+        window.startHack=()=>{document.getElementById('modal-hack').style.display='flex'; initHack();};
+        function initHack(){
+            const g=document.getElementById('hack-grid'); g.innerHTML=''; let s=[0,0,0,0,0,0,0,0,0];
+            const tog=(i)=>{s[i]=!s[i]; if(i%3>0)s[i-1]=!s[i-1]; if(i%3<2)s[i+1]=!s[i+1]; if(i>=3)s[i-3]=!s[i-3]; if(i<6)s[i+3]=!s[i+3]; ren(); if(s.every(x=>!x)){p.mn+=Math.floor(calcProd()*300)+100; alert("MN++"); document.getElementById('modal-hack').style.display='none';}};
+            const ren=()=>{Array.from(g.children).forEach((c,i)=>c.className='cell '+(s[i]?'lit':''));};
+            s.forEach((_,i)=>{const d=document.createElement('div'); d.className='cell'; d.onclick=()=>tog(i); g.appendChild(d);});
+            for(let k=0;k<10;k++)tog(Math.floor(Math.random()*9));
+        }
+
+        // LOGIC
+        window.startLogic=()=>{if(G.buffs.logic>Date.now())return; document.getElementById('modal-logic').style.display='flex'; initLogic();};
+        function initLogic(){
+            const b=document.getElementById('circuit-board'); b.innerHTML='';
+            let inputs=[0,0,0,0]; const gT=[0,0,0].map(()=>Math.floor(Math.random()*3));
+            function r(){
+                b.innerHTML='';
+                const r1=document.createElement('div'); r1.className='logic-row';
+                inputs.forEach((v,i)=>{const s=document.createElement('div'); s.className='switch '+(v?'on':''); s.innerText=v; s.onclick=()=>{inputs[i]=1-inputs[i];r();}; r1.appendChild(s);});
+                b.appendChild(r1);
+                
+                const w1=document.createElement('div'); w1.innerHTML='<div style="display:flex;gap:40px;"><div class="logic-wire-v"></div><div class="logic-wire-v"></div><div class="logic-wire-v"></div><div class="logic-wire-v"></div></div>'; b.appendChild(w1);
+
+                const r2=document.createElement('div'); r2.className='logic-row';
+                r2.innerHTML=`<div class="logic-gate">${gN(gT[0])}</div><div class="logic-gate">${gN(gT[1])}</div>`; b.appendChild(r2);
+
+                const w2=document.createElement('div'); w2.innerHTML='<div style="display:flex;gap:70px;"><div class="logic-wire-v"></div><div class="logic-wire-v"></div></div>'; b.appendChild(w2);
+
+                const r3=document.createElement('div'); r3.className='logic-row';
+                r3.innerHTML=`<div class="logic-gate">${gN(gT[2])}</div>`; b.appendChild(r3);
+
+                const resA=eV(gT[0],inputs[0],inputs[1]), resB=eV(gT[1],inputs[2],inputs[3]), fin=eV(gT[2],resA,resB);
+                const bulb=document.createElement('div'); bulb.className='switch '+(fin?'on':''); bulb.style.borderRadius="50%"; b.appendChild(bulb);
+                
+                if(fin){db.ref(`${ROOT}/game/buffs/logic`).set(Date.now()+3600000); setTimeout(()=>{document.getElementById('modal-logic').style.display='none';},300);}
+            } r();
+        }
+        function gN(t){return['AND','OR','XOR'][t]} function eV(t,a,b){if(t==0)return(a&&b)?1:0;if(t==1)return(a||b)?1:0;return(a!=b)?1:0;}
+
+    </script>
 </body>
 </html>
