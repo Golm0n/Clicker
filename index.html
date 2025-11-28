@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Clicker</title>
+    <title>Clicker V2.2 - Fix Leaderboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&family=Share+Tech+Mono&family=Kalam:wght@700&display=swap" rel="stylesheet">
     
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -18,11 +18,17 @@
 
         #main-layout{display:grid;grid-template-columns:250px 1fr 250px 350px;height:100%;}
         
-        /* 1. CLASSEMENT */
-        #leaderboard-panel{background:#08080a;border-right:1px solid #333;padding:15px;display:flex;flex-direction:column;}
-        .lb-header{border-bottom:1px solid #333;padding-bottom:10px;margin-bottom:10px;}
+        /* 1. CLASSEMENT - CORRECTION CSS */
+        #leaderboard-panel{background:#08080a;border-right:1px solid #333;padding:15px;display:flex;flex-direction:column;height:100%;box-sizing:border-box;}
+        .lb-header{border-bottom:1px solid #333;padding-bottom:10px;margin-bottom:10px;flex-shrink:0;}
         .lb-title{color:var(--primary);font-size:1.1rem;margin-bottom:5px;display:block;}
         .lb-count{color:#888;font-size:0.7rem;display:block;}
+        
+        /* Correction ici : min-height: 0 pour éviter le collapse flexbox */
+        #lb-list{flex:1;overflow-y:auto;padding-right:5px;min-height:0;}
+        #lb-list::-webkit-scrollbar {width: 5px;}
+        #lb-list::-webkit-scrollbar-thumb {background: #333; border-radius: 2px;}
+
         .lb-row{display:grid;grid-template-columns:30px 1fr auto;gap:10px;font-size:0.85rem;padding:8px 5px;border-bottom:1px solid #222;align-items:center;}
         .lb-row.me{color:var(--secondary);background:rgba(255,0,230,0.05);font-weight:bold;}
         .lb-rank{color:#666;} .lb-val{color:#fff;}
@@ -31,6 +37,9 @@
         #game-stage{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(circle,#101015 0%,#000 100%);border-right:1px solid #333;}
         .heat-container{position:absolute;top:10px;width:70%;} .heat-top{display:flex;justify-content:space-between;font-size:0.7rem;color:#888;}
         .heat-bg{width:100%;height:8px;background:#222;border-radius:4px;overflow:hidden;margin-top:5px;} #heat-fill{height:100%;width:0%;background:linear-gradient(90deg,#0f0,#f00);}
+        #overheat-msg{color:var(--danger);display:none;font-weight:bold;text-align:center;margin-top:5px;animation:blink 0.5s infinite;}
+        @keyframes blink{0%,100%{opacity:1;}50%{opacity:0.3;}}
+
         #total-score{font-family:var(--font-head);font-size:3.5rem;color:#fff;text-shadow:0 0 30px var(--primary);margin:10px 0;}
         #tier-display{color:var(--prestige);letter-spacing:2px;font-size:0.9rem;}
         #global-cps{color:#666;font-size:0.8rem;margin-bottom:10px;}
@@ -40,20 +49,13 @@
         .cube{width:100%;height:100%;position:relative;transform-style:preserve-3d;animation:spin 20s linear infinite; will-change: transform;}
         .face{position:absolute;width:220px;height:220px;border:2px solid var(--primary);background:rgba(0,247,255,0.05);display:flex;align-items:center;justify-content:center;transition:0.3s;}
         
-        /* --- NOUVEAUX EFFETS GLITCH --- */
-        /* Bandes horizontales */
         #glitch-overlay {
             position: absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:10;
             background: repeating-linear-gradient(0deg, rgba(0,0,0,0) 0px, rgba(0,0,0,0) 4px, rgba(255,255,255,0.1) 5px, rgba(0,0,0,0) 6px);
             opacity: 0; mix-blend-mode: overlay;
         }
-        /* Tremblement et Chromatic Aberration */
-        .glitch-active .cube-outer {
-            animation: spin 20s linear infinite, shake 0.2s cubic-bezier(.36,.07,.19,.97) infinite !important;
-        }
-        .glitch-active .face {
-            box-shadow: -2px 0 var(--danger), 2px 0 var(--primary) !important;
-        }
+        .glitch-active .cube-outer { animation: spin 20s linear infinite, shake 0.2s cubic-bezier(.36,.07,.19,.97) infinite !important; }
+        .glitch-active .face { box-shadow: -2px 0 var(--danger), 2px 0 var(--primary) !important; }
         @keyframes shake {
             10%, 90% { transform: translateZ(-110px) translate3d(-1px, 0, 0); }
             20%, 80% { transform: translateZ(-110px) translate3d(2px, 0, 0); }
@@ -61,7 +63,6 @@
             40%, 60% { transform: translateZ(-110px) translate3d(2px, 0, 0); }
         }
 
-        /* SKINS */
         .cube.skin-matrix .face{border-color:#0f0!important;background:rgba(0,255,0,0.1)!important;box-shadow:0 0 20px #0f0!important;}
         .cube.skin-neon .face{border-color:#f0f!important;background:rgba(255,0,255,0.15)!important;box-shadow:inset 0 0 20px #0ff!important;}
         .cube.skin-gold .face{border-color:#ffd700!important;background:rgba(255,215,0,0.15)!important;box-shadow:0 0 30px #ffd700!important;}
@@ -125,7 +126,7 @@
             <div class="heat-container">
                 <div class="heat-top"><span>STABILITÉ (12H)</span><button onclick="window.coolSystem()" style="width:auto;padding:2px 8px;margin:0;">REFROIDIR</button></div>
                 <div class="heat-bg"><div id="heat-fill"></div></div>
-                <div id="overheat-msg" style="color:var(--danger);display:none;font-weight:bold;text-align:center;">⚠️ SURCHAUFFE ⚠️</div>
+                <div id="overheat-msg">⚠️ SURCHAUFFE -50% PROD ⚠️</div>
             </div>
 
             <div id="tier-display">TIER 0</div>
@@ -133,7 +134,8 @@
             <div id="global-cps">GLOBAL: 0/s</div>
 
             <div class="scene" id="click-zone">
-                <div id="glitch-overlay"></div> <div class="cube cube-outer" id="the-cube">
+                <div id="glitch-overlay"></div> 
+                <div class="cube cube-outer" id="the-cube">
                     <div class="face f-f"></div><div class="face f-b"></div><div class="face f-l"></div>
                     <div class="face f-r"></div><div class="face f-t"></div><div class="face f-bt"></div>
                 </div>
@@ -148,7 +150,7 @@
             </div>
 
             <div class="hud-grid">
-                <div class="hud-item" id="h-maint"><div class="hud-val">x1.0</div><div class="hud-lbl">MAINT</div></div>
+                <div class="hud-item" id="h-maint"><div class="hud-val">x2.0</div><div class="hud-lbl">MAINT</div></div>
                 <div class="hud-item" id="h-daily"><div class="hud-val">x1.5</div><div class="hud-lbl">DAILY</div></div>
                 <div class="hud-item" id="h-logic"><div class="hud-val">x1.2</div><div class="hud-lbl">LOGIC</div></div>
                 <div class="hud-item" id="h-chaos"><div class="hud-val">x1.7</div><div class="hud-lbl">QUANTUM</div></div>
@@ -174,13 +176,13 @@
         <div id="sidebar">
             <div class="panel">
                 <h2>PROTOCOLES GLOBAUX</h2>
-                <button onclick="window.startDaily()" id="btn-daily"><span>DAILY (x1.5)</span><span id="t-daily">...</span></button>
-                <button onclick="window.startMaint()" id="btn-maint"><span>MAINT (x2)</span><span id="t-maint">...</span></button>
-                <button onclick="window.startLogic()" id="btn-logic"><span>PORTES (x1.2)</span><span id="t-logic">...</span></button>
+                <button onclick="window.startDaily()" id="btn-daily" class="btn-daily"><span>DAILY (24H)</span><span id="t-daily">...</span></button>
+                <button onclick="window.startMaint()" id="btn-maint" class="btn-maint"><span>MAINT (x2)</span><span id="t-maint">...</span></button>
+                <button onclick="window.startLogic()" id="btn-logic" class="btn-logic"><span>PORTES (x1.2)</span><span id="t-logic">...</span></button>
             </div>
             <div class="panel">
                 <h2>FARMING</h2>
-                <button onclick="window.startFlux()" class="btn-farm"><span>FLUX (SIMON)</span><span>+1/s</span></button>
+                <button onclick="window.startFlux()" class="btn-farm"><span>FLUX (SIMON)</span><span>+Flux/s</span></button>
                 <button onclick="window.startGlyph()" class="btn-farm"><span>GLYPH BREACH</span><span>MN++</span></button>
                 <button onclick="window.startHack()" class="btn-farm"><span>LIGHTS OUT</span><span>MN++</span></button>
             </div>
@@ -214,7 +216,7 @@
         </div>
     </div>
 
-    <div class="modal" id="modal-simon" style="display:none"><div class="modal-box"><h2 style="color:var(--secondary)">MÉMOIRE</h2><div class="grid-3" id="simon-grid"></div><div id="simon-msg">...</div></div></div>
+    <div class="modal" id="modal-simon" style="display:none"><div class="modal-box"><h2 style="color:var(--secondary)">MÉMOIRE FLUX</h2><p id="simon-info" style="font-size:0.8rem;color:#888;">...</p><div class="grid-3" id="simon-grid"></div><div id="simon-msg">...</div></div></div>
     
     <div class="modal" id="modal-glyph" style="display:none">
         <div class="modal-box">
@@ -225,7 +227,7 @@
     </div>
 
     <div class="modal" id="modal-hack" style="display:none"><div class="modal-box"><h2>ÉTEIGNEZ TOUT</h2><div class="grid-3" id="hack-grid"></div><button onclick="document.getElementById('modal-hack').style.display='none'">FERMER</button></div></div>
-    <div class="modal" id="modal-daily" style="display:none"><div class="modal-box"><h2 style="color:var(--daily)">ALIGNEMENT</h2><div style="background:#333;height:40px;position:relative;margin:20px 0;overflow:hidden;"><div style="position:absolute;left:45%;width:10%;height:100%;border:1px solid #0f0;background:rgba(0,255,0,0.2)"></div><div id="daily-cur" style="position:absolute;left:0;width:6px;height:100%;background:#fff;"></div></div><button onclick="window.stopDaily()" style="background:#fff;color:#000">STOP</button></div></div>
+    <div class="modal" id="modal-daily" style="display:none"><div class="modal-box"><h2 style="color:var(--daily)">ALIGNEMENT (24H)</h2><div style="background:#333;height:40px;position:relative;margin:20px 0;overflow:hidden;"><div style="position:absolute;left:45%;width:10%;height:100%;border:1px solid #0f0;background:rgba(0,255,0,0.2)"></div><div id="daily-cur" style="position:absolute;left:0;width:6px;height:100%;background:#fff;"></div></div><button onclick="window.stopDaily()" style="background:#fff;color:#000">STOP</button></div></div>
 
     <div class="modal" id="modal-logic" style="display:none">
         <div class="modal-box">
@@ -253,7 +255,7 @@
             db = firebase.database();
         } catch(e) { alert("Erreur Firebase: " + e.message); }
 
-        const ROOT = 'ipsa_v23';
+        const ROOT = 'ipsa_v24';
 
         let p = { name:"", mn:0, bots:0, nets:0, fluxSess:0, skin:'', quantumEnd:0 };
         const saved = localStorage.getItem(ROOT);
@@ -286,6 +288,7 @@
                     c.set(true);
                 }
             });
+            // Assure que l'utilisateur est bien créé dans la DB
             db.ref(`${ROOT}/users/${p.name}`).transaction(u => u || {score:0});
         }
 
@@ -300,18 +303,37 @@
                 if(document.activeElement.id!=='comm-note') document.getElementById('comm-note').value = s.val()||"";
             });
 
-            db.ref(`${ROOT}/users`).on('value', s=>{
-                const arr=[]; s.forEach(c=>arr.push({n:c.key, s:c.val().score||0}));
-                arr.sort((a,b)=>b.s-a.s);
-                const d=document.getElementById('lb-list'); d.innerHTML='';
-                arr.slice(0,10).forEach((u,i)=>{
-                    d.innerHTML += `
-                    <div class="lb-row ${u.n===p.name?'me':''}">
-                        <span class="lb-rank">#${i+1}</span>
+            // --- REPARATION LEADERBOARD ---
+            db.ref(`${ROOT}/users`).on('value', s => {
+                const val = s.val();
+                if (!val) {
+                    document.getElementById('lb-list').innerHTML = "Aucun joueur.";
+                    return;
+                }
+
+                // Convertir l'objet en tableau de manière sûre
+                const arr = Object.keys(val).map(key => {
+                    return { n: key, s: val[key].score || 0 };
+                });
+
+                // Trier
+                arr.sort((a, b) => b.s - a.s);
+
+                // Construire le HTML complet d'abord
+                let html = "";
+                arr.forEach((u, i) => {
+                    // Vérification sécurisée du pseudo pour la classe 'me'
+                    const isMe = (p.name && u.n === p.name) ? 'me' : '';
+                    html += `
+                    <div class="lb-row ${isMe}">
+                        <span class="lb-rank">#${i + 1}</span>
                         <span>${u.n}</span>
                         <span class="lb-val">${fmt(u.s)}</span>
                     </div>`;
                 });
+
+                // Injecter une seule fois
+                document.getElementById('lb-list').innerHTML = html;
             });
         }
         document.getElementById('comm-note').addEventListener('change', e=>db.ref(`${ROOT}/note`).set(e.target.value));
@@ -320,7 +342,7 @@
         const binVis = document.getElementById('binary-vis');
         for(let i=0;i<40;i++){let b=document.createElement('div'); b.className='bit'; binVis.appendChild(b);}
         
-        let lastTime=Date.now(), lastGlobal=0, cpsBuff=0;
+        let lastTime=Date.now(), lastGlobal=0, cpsBuff=0, lastProdSave=0;
 
         setInterval(()=>{
             if(!db) return;
@@ -349,37 +371,28 @@
             document.getElementById('tier-display').innerText = `TIER ${G.tier} (x${fmt(bT)})`;
             document.getElementById('mn-val').innerText = fmt(p.mn);
 
-            // Binary Vis
+            // FX
             if(Math.random()>0.8) {
                 const bin=Math.floor(G.score).toString(2).split('').reverse();
                 Array.from(binVis.children).forEach((b,i)=>{
                     if(i<bin.length && bin[i]==='1') b.classList.add('on'); else b.classList.remove('on');
                 });
             }
-
-            // --- FX HEARTBEAT & GLITCH ---
             if(G.score > 0) {
-                // Pulse
                 let intensity = Math.min(0.2, Math.log10(G.score + 1) / 50); 
                 let beat = 1 + Math.sin(Date.now() / 200) * intensity;
-                // Preserve rotateZ from glitch if needed, but here simple scale
                 document.getElementById('click-zone').style.transform = `scale(${beat})`;
-
-                // Glitch Threshold (Starts visible at 1k, strong at 1M)
+                
                 let glitchDiv = document.getElementById('glitch-overlay');
                 let cube = document.getElementById('click-zone');
-                
                 if(G.score > 1000) {
-                    let glitchIntensity = Math.min(1, Math.log10(G.score) / 9); // 0 to 1
-                    glitchDiv.style.opacity = glitchIntensity * 0.5; // Max 0.5 opacity for bands
-                    
-                    if(Math.random() < (glitchIntensity * 0.1)) { // Random glitches
+                    let glitchIntensity = Math.min(1, Math.log10(G.score) / 9);
+                    glitchDiv.style.opacity = glitchIntensity * 1;
+                    if(Math.random() < (glitchIntensity * 0.1)) {
                         cube.classList.add('glitch-active');
                         setTimeout(() => cube.classList.remove('glitch-active'), 100);
                     }
-                } else {
-                    glitchDiv.style.opacity = 0;
-                }
+                } else glitchDiv.style.opacity = 0;
             }
 
             if(now-lastTime>2000) {
@@ -392,6 +405,11 @@
             document.getElementById('local-cps').innerText = fmt(prod);
             updateShop(prod);
 
+            if(now - lastProdSave > 5000) {
+                if(p.name) db.ref(`${ROOT}/users/${p.name}/prod`).set(Math.floor(prod));
+                lastProdSave = now;
+            }
+
             if(prod>0) {
                 cpsBuff += prod/30;
                 if(cpsBuff>=1){ const s=Math.floor(cpsBuff); cpsBuff-=s; p.mn+=s; sendScore(s); }
@@ -401,11 +419,19 @@
         setInterval(()=>localStorage.setItem(ROOT, JSON.stringify(p)), 2000);
 
         function fmt(n) {
-            if(n>=1e21) return "MAX"; if(n<1000) return Math.floor(n);
+            if(n>=1e21) return n; if(n<1000) return Math.floor(n);
             const i=Math.floor(Math.log10(n)/3);
             return (n/Math.pow(1000,i)).toFixed(2) + ["","k","M","B","T","Qa"][i];
         }
         function calcProd() { return (p.bots*1)+(p.nets*10)+p.fluxSess; }
+        
+        function getPrice(type) {
+            let base = type==='bot'?50:500;
+            let count = type==='bot'?p.bots:p.nets;
+            let inflation = p.fluxSess * 10;
+            return Math.floor((base * count) + inflation);
+        }
+
         function sendScore(amt) {
             db.ref(`${ROOT}/game/score`).transaction(s=>(s||0)+amt);
             if(p.name) db.ref(`${ROOT}/users/${p.name}/score`).transaction(s=>(s||0)+amt);
@@ -413,7 +439,12 @@
         function updateHud(id,on){document.getElementById(id).className=on?'hud-item active-buff':'hud-item';}
         function updateBtn(bid,tid,end){
             const b=document.getElementById(bid), t=document.getElementById(tid);
-            if(end>Date.now()){b.disabled=true; t.innerText=Math.ceil((end-Date.now())/60000)+"m";}
+            if(end>Date.now()){b.disabled=true; 
+                let diff = end-Date.now();
+                let txt = Math.ceil(diff/60000)+"m";
+                if(diff > 3600000) txt = Math.ceil(diff/3600000)+"h";
+                t.innerText=txt;
+            }
             else{b.disabled=false; t.innerText="PRET";}
         }
         function updateVisuals(){
@@ -428,16 +459,24 @@
                 if(confirm("RESET GLOBAL ?")) { db.ref(`${ROOT}/game/score`).set(0); db.ref(`${ROOT}/game/tier`).set(G.tier+1); }
             } else alert("Requis: "+fmt(req));
         };
+        
         window.buy = (t) => {
-            if(t==='bot'){const c=Math.floor(50*Math.pow(1.4,p.bots)); if(p.mn>=c){p.mn-=c; p.bots++;}}
-            if(t==='net'){const c=Math.floor(500*Math.pow(1.4,p.nets)); if(p.mn>=c){p.mn-=c; p.nets++;}}
+            if(t==='bot' || t==='net'){
+                const cost = getPrice(t);
+                if(p.mn >= cost){
+                    p.mn -= cost;
+                    if(t==='bot') p.bots++; else p.nets++;
+                }
+            }
             if(t==='warp'){const c=5000; if(p.mn>=c){if(confirm("Warp?")){p.mn-=c; sendScore(calcProd()*3600);}}}
         };
+        
         window.buySkin = (s,c) => { if(p.mn>=c){if(confirm("Skin?")){p.mn-=c; p.skin=s; applySkin(s);}}else alert("Pas assez"); };
         function applySkin(s){ const el=document.getElementById('the-cube'); if(el) el.className="cube cube-outer "+s; }
+        
         function updateShop(prod) {
-            document.getElementById('c-bot').innerText=fmt(Math.floor(50*Math.pow(1.4,p.bots)));
-            document.getElementById('c-net').innerText=fmt(Math.floor(500*Math.pow(1.4,p.nets)));
+            document.getElementById('c-bot').innerText=fmt(getPrice('bot'));
+            document.getElementById('c-net').innerText=fmt(getPrice('net'));
             document.getElementById('c-warp').innerText=fmt(Math.max(5000, Math.floor(prod*3600)));
         }
 
@@ -455,105 +494,62 @@
         });
         const st=document.createElement('style'); st.innerHTML="@keyframes float{to{transform:translateY(-50px);opacity:0}}"; document.head.appendChild(st);
 
-        // --- QUANTUM (CORRIGÉ) ---
+        // QUANTUM
         let qAnim, qPos=0, qDir=1.5, qActive=false, qTarget=50;
-
         window.startQuantum = () => {
             if(p.quantumEnd > Date.now()) return;
-            
             document.getElementById('quantum-bar').style.display='block';
-            qActive = true; 
-            qPos = 0;
-            
-            // 1. Définir une cible aléatoire (entre 20% et 80%)
-            qTarget = 20 + Math.random() * 60;
-            
-            // 2. Mettre à jour le visuel
+            qActive = true; qPos = 0; qTarget = 20 + Math.random() * 60;
             const bar = document.getElementById('q-target');
-            bar.style.left = qTarget + "%";
-            // Important : on centre la barre sur son point exact
-            bar.style.transform = "translateX(-50%)"; 
-            
+            bar.style.left = qTarget + "%"; bar.style.transform = "translateX(-50%)"; 
             loopQ();
         };
-
         function loopQ(){
             if(!qActive) return;
-            qPos += qDir;
-            // Rebondir sur les bords
-            if(qPos > 100 || qPos < 0) qDir *= -1;
+            qPos += qDir; if(qPos > 100 || qPos < 0) qDir *= -1;
             document.getElementById('q-cursor').style.left = qPos + "%";
             qAnim = requestAnimationFrame(loopQ);
         }
-
         document.getElementById('quantum-bar').onclick = () => {
-            qActive = false; 
-            cancelAnimationFrame(qAnim); 
-            document.getElementById('quantum-bar').style.display='none';
-            
-            // 3. Vérifier la distance entre le curseur et la cible (+/- 5%)
-            if(Math.abs(qPos - qTarget) < 5) {
-                p.quantumEnd = Date.now() + 60000; 
-                alert("STABILISATION RÉUSSIE !"); 
-            } else { 
-                alert("ÉCHEC DE LA SYNCHRONISATION"); 
-            }
+            qActive = false; cancelAnimationFrame(qAnim); document.getElementById('quantum-bar').style.display='none';
+            if(Math.abs(qPos - qTarget) < 5) { p.quantumEnd = Date.now() + 60000; alert("STABILISATION RÉUSSIE !"); } 
+            else { alert("ÉCHEC DE LA SYNCHRONISATION"); }
         };
 
-        // FLUX
-        window.startFlux = () => { 
-            document.getElementById('modal-simon').style.display = 'flex'; 
-            playSimon(); 
-        };
-
+        // SIMON
+        window.startFlux = () => { document.getElementById('modal-simon').style.display = 'flex'; playSimon(); };
         function playSimon() {
-            const g = document.getElementById('simon-grid'); 
-            g.innerHTML = '';
-            // Création de la grille
+            const g = document.getElementById('simon-grid'); g.innerHTML = '';
             for (let i = 0; i < 9; i++) {
-                const d = document.createElement('div'); 
-                d.className = 'cell'; 
-                d.dataset.id = i; 
-                g.appendChild(d);
+                const d = document.createElement('div'); d.className = 'cell'; d.dataset.id = i; g.appendChild(d);
             }
+            let difficulty = 3 + Math.floor(p.fluxSess / 20);
+            document.getElementById('simon-info').innerText = `SÉQUENCE: ${difficulty}`;
+            const s = []; for(let i=0; i<difficulty; i++) s.push(Math.floor(Math.random()*9));
 
-            // Séquence aléatoire
-            const s = [0, 1, 2, 3, 4, 5, 6, 7, 8].sort(() => Math.random() - 0.5).slice(0, 3);
             let k = 0, canClick = false, idx = 0;
-
-            // Animation de la séquence
             const int = setInterval(() => {
-                if (k >= 3) {
-                    clearInterval(int); 
-                    document.getElementById('simon-msg').innerText = "GO"; 
-                    canClick = true; 
-                    return;
+                if (k >= s.length) {
+                    clearInterval(int); document.getElementById('simon-msg').innerText = "GO"; canClick = true; return;
                 }
-                const c = g.children[s[k]]; 
-                c.classList.add('lit'); 
+                const c = g.children[s[k]]; c.classList.add('lit'); 
                 setTimeout(() => c.classList.remove('lit'), 300); 
                 k++;
             }, 600);
 
-            // Gestion des clics joueur
             Array.from(g.children).forEach(c => c.onclick = () => {
                 if (!canClick) return;
-                
-                c.classList.add('lit'); 
-                setTimeout(() => c.classList.remove('lit'), 100);
-
+                c.classList.add('lit'); setTimeout(() => c.classList.remove('lit'), 100);
                 if (parseInt(c.dataset.id) === s[idx]) {
                     idx++; 
-                    if (idx >= 3) {
-                        let bonus = 1 + Math.floor(p.mn / 100);
+                    if (idx >= s.length) {
+                        let bonus = 10 + Math.floor(p.fluxSess / 1000);
                         p.fluxSess += bonus;
-                        
                         document.getElementById('modal-simon').style.display = 'none';
-                        alert("Succès ! +" + bonus + "/s ajouté au flux.");
+                        alert(`Succès ! +${bonus}/s ajouté au flux.`);
                     }
                 } else {
-                    document.getElementById('modal-simon').style.display = 'none'; 
-                    alert("Raté !");
+                    document.getElementById('modal-simon').style.display = 'none'; alert("Raté !");
                 }
             });
         }
@@ -562,65 +558,36 @@
         let dAnim, dPos=0, dDir=1;
         window.startDaily=()=>{if(G.buffs.daily>Date.now())return; document.getElementById('modal-daily').style.display='flex'; loopD();};
         function loopD(){dPos+=1.2*dDir; if(dPos>100||dPos<0)dDir*=-1; document.getElementById('daily-cur').style.left=dPos+"%"; dAnim=requestAnimationFrame(loopD);}
-        window.stopDaily=()=>{ cancelAnimationFrame(dAnim); document.getElementById('modal-daily').style.display='none'; if(dPos>=45&&dPos<=55) db.ref(`${ROOT}/game/buffs/daily`).set(Date.now()+3600000); else alert("RATE"); };
+        window.stopDaily=()=>{ cancelAnimationFrame(dAnim); document.getElementById('modal-daily').style.display='none'; if(dPos>=45&&dPos<=55) db.ref(`${ROOT}/game/buffs/daily`).set(Date.now() + 86400000); else alert("RATE"); };
 
-        // MAINT
+        // MAINT & LOGIC
         window.startMaint=()=>{if(G.buffs.maint>Date.now())return; const a=Math.floor(Math.random()*50), b=Math.floor(Math.random()*50); if(parseInt(prompt(`${a}+${b}?`))===a+b) db.ref(`${ROOT}/game/buffs/maint`).set(Date.now()+7200000);};
 
-        // GLYPH (RESTORED VERSION)
+        // GLYPH
         const chars = ['Ω','Σ','Π','Δ','Ψ','Φ','Γ','Λ','Ξ','Θ'];
         let gSeq = [], gIdx = 0;
-
-        window.startGlyph = () => {
-            document.getElementById('modal-glyph').style.display = 'flex';
-            playGlyph();
-        };
-
+        window.startGlyph = () => { document.getElementById('modal-glyph').style.display = 'flex'; playGlyph(); };
         function playGlyph() {
-            const g = document.getElementById('glyph-grid');
-            g.innerHTML = '';
+            const g = document.getElementById('glyph-grid'); g.innerHTML = '';
             const targetDiv = document.getElementById('glyph-tgt');
-
-            const board = [];
-            for(let i=0; i<16; i++) {
-                board.push(chars[Math.floor(Math.random() * chars.length)]);
-            }
-
-            board.forEach((char, index) => {
-                const d = document.createElement('div');
-                d.className = 'g-cell';
-                d.innerText = char;
-                d.onclick = () => checkGlyphClick(char, d);
-                g.appendChild(d);
+            const board = []; for(let i=0; i<16; i++) board.push(chars[Math.floor(Math.random() * chars.length)]);
+            board.forEach((char) => {
+                const d = document.createElement('div'); d.className = 'g-cell'; d.innerText = char;
+                d.onclick = () => checkGlyphClick(char, d); g.appendChild(d);
             });
-
-            // Pick 3 from board
-            gSeq = [
-                board[Math.floor(Math.random()*16)],
-                board[Math.floor(Math.random()*16)],
-                board[Math.floor(Math.random()*16)]
-            ];
-
-            gIdx = 0;
-            targetDiv.innerText = gSeq.join(' ');
+            gSeq = [board[Math.floor(Math.random()*16)], board[Math.floor(Math.random()*16)], board[Math.floor(Math.random()*16)]];
+            gIdx = 0; targetDiv.innerText = gSeq.join(' ');
         }
-
         function checkGlyphClick(char, div) {
             if(char === gSeq[gIdx]) {
-                div.style.background = "#0f0";
-                gIdx++;
+                div.style.background = "#0f0"; gIdx++;
                 if(gIdx >= gSeq.length) {
                     setTimeout(() => {
                         document.getElementById('modal-glyph').style.display = 'none';
-                        addmnglyph = Math.floor(calcProd() * 1200) + 1000;
-                        p.mn += addmnglyph;
-                        alert("BREACH REUSSI : MN++ " + addmnglyph);
+                        const add = Math.floor(calcProd() * 1200) + 1000; p.mn += add; alert("BREACH REUSSI : MN++ " + add);
                     }, 200);
                 }
-            } else {
-                div.style.background = "#f00";
-                setTimeout(()=>div.style.background="#222", 200);
-            }
+            } else { div.style.background = "#f00"; setTimeout(()=>div.style.background="#222", 200); }
         }
 
         // HACK
@@ -643,20 +610,14 @@
                 const r1=document.createElement('div'); r1.className='logic-row';
                 inputs.forEach((v,i)=>{const s=document.createElement('div'); s.className='switch '+(v?'on':''); s.innerText=v; s.onclick=()=>{inputs[i]=1-inputs[i];r();}; r1.appendChild(s);});
                 b.appendChild(r1);
-                
                 const w1=document.createElement('div'); w1.innerHTML='<div style="display:flex;gap:40px;"><div class="logic-wire-v"></div><div class="logic-wire-v"></div><div class="logic-wire-v"></div><div class="logic-wire-v"></div></div>'; b.appendChild(w1);
-
                 const r2=document.createElement('div'); r2.className='logic-row';
                 r2.innerHTML=`<div class="logic-gate">${gN(gT[0])}</div><div class="logic-gate">${gN(gT[1])}</div>`; b.appendChild(r2);
-
                 const w2=document.createElement('div'); w2.innerHTML='<div style="display:flex;gap:70px;"><div class="logic-wire-v"></div><div class="logic-wire-v"></div></div>'; b.appendChild(w2);
-
                 const r3=document.createElement('div'); r3.className='logic-row';
                 r3.innerHTML=`<div class="logic-gate">${gN(gT[2])}</div>`; b.appendChild(r3);
-
                 const resA=eV(gT[0],inputs[0],inputs[1]), resB=eV(gT[1],inputs[2],inputs[3]), fin=eV(gT[2],resA,resB);
                 const bulb=document.createElement('div'); bulb.className='switch '+(fin?'on':''); bulb.style.borderRadius="50%"; b.appendChild(bulb);
-                
                 if(fin){db.ref(`${ROOT}/game/buffs/logic`).set(Date.now()+3600000); setTimeout(()=>{document.getElementById('modal-logic').style.display='none';},300);}
             } r();
         }
